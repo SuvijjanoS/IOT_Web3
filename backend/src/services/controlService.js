@@ -40,8 +40,13 @@ export async function sendControlCommand(sensorId, relayId, state, durationSec) 
     
     const commandId = result.rows[0].id;
     
-    // Publish to MQTT
-    publishControlCommand(sensorId, command);
+    // Publish to MQTT (with error handling)
+    try {
+      await publishControlCommand(sensorId, command);
+    } catch (mqttError) {
+      console.error('Failed to publish control command via MQTT:', mqttError.message);
+      // Continue execution - command is still stored in DB
+    }
     
     // Record on blockchain (async)
     try {

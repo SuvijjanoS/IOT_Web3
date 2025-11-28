@@ -53,13 +53,16 @@ export function publishControlCommand(sensorId, command) {
   const controlTopic = `water/control/${sensorId}`;
   const payload = JSON.stringify(command);
   
-  mqttClient.publish(controlTopic, payload, { qos: 1 }, (error) => {
-    if (error) {
-      console.error('Failed to publish control command:', error);
-      throw error;
-    } else {
-      console.log(`Published control command to ${controlTopic}:`, command);
-    }
+  return new Promise((resolve, reject) => {
+    mqttClient.publish(controlTopic, payload, { qos: 1 }, (error) => {
+      if (error) {
+        console.error('Failed to publish control command:', error);
+        reject(error);
+      } else {
+        console.log(`Published control command to ${controlTopic}:`, command);
+        resolve();
+      }
+    });
   });
 }
 

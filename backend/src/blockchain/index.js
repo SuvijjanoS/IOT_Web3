@@ -79,12 +79,12 @@ export function hashData(jsonString) {
  * Record a reading on-chain
  */
 export async function recordReadingOnChain(sensorId, timestamp, dataHash) {
-  if (!contract) {
+  if (!waterQualityContract) {
     throw new Error('Blockchain not initialized');
   }
 
   try {
-    const tx = await contract.recordReading(sensorId, timestamp, dataHash);
+    const tx = await waterQualityContract.recordReading(sensorId, timestamp, dataHash);
     const receipt = await tx.wait();
     return {
       txHash: receipt.hash,
