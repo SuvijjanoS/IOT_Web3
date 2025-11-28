@@ -75,6 +75,31 @@ router.get('/control/history/:sensorId', async (req, res) => {
   }
 });
 
+// ===== WATER QUALITY SENSOR READINGS API =====
+
+// POST endpoint for sensor readings (alternative to MQTT)
+router.post('/v1/sensor-readings', async (req, res) => {
+  try {
+    const data = req.body;
+    const sensorId = data.sensor_id || 'unknown';
+    const topic = `water/quality/${sensorId}`;
+    
+    const readingId = await processSensorReading(topic, data);
+    
+    res.status(201).json({
+      success: true,
+      reading_id: readingId,
+      sensor_id: sensorId
+    });
+  } catch (error) {
+    console.error('Error processing sensor reading:', error);
+    res.status(500).json({ 
+      error: 'Failed to process sensor reading',
+      message: error.message 
+    });
+  }
+});
+
 // ===== DRONE FLIGHT LOGS API =====
 
 // Ingest a drone flight log
