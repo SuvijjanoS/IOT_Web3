@@ -371,6 +371,29 @@
   text-decoration: underline;
 }
 
+.blockchain-pending {
+  padding: 1rem;
+  background: #fff3cd;
+  border-radius: 6px;
+  border-left: 4px solid #ffc107;
+}
+
+.blockchain-pending p {
+  margin: 0.5rem 0;
+  color: #856404;
+}
+
+.blockchain-pending .pending-explanation {
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+.blockchain-pending a {
+  color: #856404;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .dashboard-header {
     flex-direction: column;

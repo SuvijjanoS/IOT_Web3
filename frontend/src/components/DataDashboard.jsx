@@ -308,9 +308,9 @@ function DataDashboard() {
               </div>
             </div>
 
-            {selectedReading.tx_hash && (
-              <div className="detail-section">
-                <h4>Blockchain Verification</h4>
+            <div className="detail-section">
+              <h4>Blockchain Verification</h4>
+              {selectedReading.tx_hash ? (
                 <div className="blockchain-link">
                   <a
                     href={`${ETHERSCAN_BASE}${selectedReading.tx_hash}`}
@@ -340,8 +340,16 @@ function DataDashboard() {
                     )}
                   </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="blockchain-pending">
+                  <p>⏳ <strong>Status: Pending</strong></p>
+                  <p className="pending-explanation">
+                    This reading is stored in the database but not yet recorded on the blockchain.
+                    To enable blockchain tokenization, see the <a href="/BLOCKCHAIN_SETUP.md" target="_blank">Blockchain Setup Guide</a>.
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className="detail-section">
               <h4>Raw JSON</h4>

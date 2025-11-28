@@ -1,0 +1,55 @@
+.blockchain-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.blockchain-status.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.blockchain-status.on-chain {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-icon {
+  font-size: 1.1rem;
+}
+
+.status-text {
+  font-weight: 600;
+}
+
+.setup-link {
+  color: #856404;
+  text-decoration: underline;
+  font-size: 0.85rem;
+  margin-left: 0.25rem;
+}
+
+.setup-link:hover {
+  color: #533f03;
+}
+
+.blockchain-link,
+.block-link {
+  color: #155724;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+.blockchain-link:hover,
+.block-link:hover {
+  text-decoration: underline;
+  background: rgba(255, 255, 255, 0.7);
+}
+
