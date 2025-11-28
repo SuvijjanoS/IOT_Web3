@@ -116,6 +116,35 @@ function DataDashboard() {
         </div>
       </div>
 
+      {selectedSensor && (
+        <div className="sensor-info">
+          <div className="sensor-info-item">
+            <span className="info-label">Selected Sensor:</span>
+            <span className="info-value">{selectedSensor}</span>
+          </div>
+          {sensors.find(s => s.sensor_id === selectedSensor) && (
+            <>
+              <div className="sensor-info-item">
+                <span className="info-label">Total Readings:</span>
+                <span className="info-value">{sensors.find(s => s.sensor_id === selectedSensor).reading_count || 0}</span>
+              </div>
+              <div className="sensor-info-item">
+                <span className="info-label">Last Reading:</span>
+                <span className="info-value">
+                  {sensors.find(s => s.sensor_id === selectedSensor).last_reading 
+                    ? new Date(sensors.find(s => s.sensor_id === selectedSensor).last_reading).toLocaleString()
+                    : 'Never'}
+                </span>
+              </div>
+            </>
+          )}
+          <div className="sensor-info-item">
+            <span className="info-label">Current Parameter:</span>
+            <span className="info-value">{getParameterLabel(parameter)}</span>
+          </div>
+        </div>
+      )}
+
       {loading && <div className="loading">Loading readings...</div>}
 
       {chartData.length > 0 && (

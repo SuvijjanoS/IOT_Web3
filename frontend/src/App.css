@@ -23,6 +23,16 @@
 .nav-title {
   font-size: 1.5rem;
   font-weight: 600;
+  margin: 0;
+}
+
+.nav-title-link {
+  text-decoration: none;
+  color: white;
+}
+
+.nav-title-link:hover {
+  opacity: 0.9;
 }
 
 .nav-links {

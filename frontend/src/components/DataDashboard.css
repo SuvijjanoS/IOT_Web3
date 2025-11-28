@@ -32,6 +32,37 @@
   cursor: pointer;
 }
 
+.sensor-info {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sensor-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sensor-info-item .info-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sensor-info-item .info-value {
+  font-size: 1.1rem;
+  color: #333;
+  font-weight: 600;
+}
+
 .chart-container {
   background: white;
   padding: 1.5rem;
