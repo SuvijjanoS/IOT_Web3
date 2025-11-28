@@ -103,3 +103,79 @@ CREATE INDEX IF NOT EXISTS idx_drone_flights_flight_id ON drone_flights(flight_i
 CREATE INDEX IF NOT EXISTS idx_drone_flight_samples_flight_id ON drone_flight_samples(flight_id);
 CREATE INDEX IF NOT EXISTS idx_drone_flight_samples_t_ms ON drone_flight_samples(flight_id, t_ms);
 
+-- Device Registry Table
+-- Stores IoT device identities and their associated wallet addresses
+CREATE TABLE IF NOT EXISTS devices (
+  id SERIAL PRIMARY KEY,
+  device_id BYTEA NOT NULL UNIQUE,  -- bytes32 deviceId (keccak256 hash)
+  device_wallet TEXT NOT NULL,      -- Ethereum address
+  device_privkey_encrypted TEXT,    -- Encrypted private key (for prototype, custodial)
+  manufacturer TEXT,
+  model TEXT,
+  serial_number TEXT,
+  hardware_nonce TEXT,
+  fingerprint BYTEA,                -- bytes32 fingerprint
+  is_active BOOLEAN DEFAULT true,
+  registered_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Log Tokens Table
+-- Tracks ERC-721 tokens minted for log hashes
+CREATE TABLE IF NOT EXISTS log_tokens (
+  id SERIAL PRIMARY KEY,
+  token_id BIGINT NOT NULL UNIQUE,
+  device_id BYTEA NOT NULL,          -- bytes32 deviceId
+  log_hash BYTEA NOT NULL,           -- SHA256 hash of canonicalized log
+  log_type TEXT NOT NULL,            -- 'DEVICE_LOG' or 'COMMAND_LOG'
+  logged_at BIGINT NOT NULL,          -- uint64 timestamp
+  uri TEXT,                           -- Optional IPFS/S3 pointer
+  owner_address TEXT NOT NULL,        -- Token owner (device wallet or command center)
+  tx_hash TEXT,
+  block_number BIGINT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Command Center Logs Table
+-- Stores command/instruction logs that are tokenized
+CREATE TABLE IF NOT EXISTS command_logs (
+  id SERIAL PRIMARY KEY,
+  command_id TEXT NOT NULL UNIQUE,
+  device_id BYTEA,                   -- Target device (or NULL for broadcast)
+  command_type TEXT NOT NULL,         -- e.g., 'UPDATE_FIRMWARE', 'CHANGE_CONFIG', etc.
+  command_params JSONB NOT NULL,     -- Command parameters
+  result JSONB,                      -- Command execution result
+  log_hash BYTEA NOT NULL,           -- SHA256 hash of canonicalized command log
+  token_id BIGINT REFERENCES log_tokens(token_id),
+  logged_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Device Logs Table (generic)
+-- Stores device telemetry logs that are tokenized
+CREATE TABLE IF NOT EXISTS device_logs (
+  id SERIAL PRIMARY KEY,
+  log_id TEXT NOT NULL UNIQUE,
+  device_id BYTEA NOT NULL REFERENCES devices(device_id),
+  log_data JSONB NOT NULL,           -- The actual log entries (JSONL format)
+  log_hash BYTEA NOT NULL,           -- SHA256 hash of canonicalized log
+  token_id BIGINT REFERENCES log_tokens(token_id),
+  logged_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_devices_device_id ON devices(device_id);
+CREATE INDEX IF NOT EXISTS idx_devices_device_wallet ON devices(device_wallet);
+CREATE INDEX IF NOT EXISTS idx_devices_is_active ON devices(is_active);
+CREATE INDEX IF NOT EXISTS idx_log_tokens_token_id ON log_tokens(token_id);
+CREATE INDEX IF NOT EXISTS idx_log_tokens_log_hash ON log_tokens(log_hash);
+CREATE INDEX IF NOT EXISTS idx_log_tokens_device_id ON log_tokens(device_id);
+CREATE INDEX IF NOT EXISTS idx_log_tokens_owner ON log_tokens(owner_address);
+CREATE INDEX IF NOT EXISTS idx_command_logs_command_id ON command_logs(command_id);
+CREATE INDEX IF NOT EXISTS idx_command_logs_device_id ON command_logs(device_id);
+CREATE INDEX IF NOT EXISTS idx_command_logs_log_hash ON command_logs(log_hash);
+CREATE INDEX IF NOT EXISTS idx_device_logs_log_id ON device_logs(log_id);
+CREATE INDEX IF NOT EXISTS idx_device_logs_device_id ON device_logs(device_id);
+CREATE INDEX IF NOT EXISTS idx_device_logs_log_hash ON device_logs(log_hash);
+

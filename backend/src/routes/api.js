@@ -8,6 +8,8 @@ import {
   getFlightsByDroneId,
   getAllDrones 
 } from '../services/droneFlightService.js';
+import { registerDevice, getDevice, getAllDevices, setDeviceStatus } from '../services/deviceService.js';
+import { processDeviceLog, processCommandLog, verifyLog } from '../services/logTokenService.js';
 
 const router = express.Router();
 
@@ -178,6 +180,144 @@ router.get('/drones/:droneId/flights', async (req, res) => {
   } catch (error) {
     console.error('Error fetching drone flights:', error);
     res.status(500).json({ error: 'Failed to fetch drone flights' });
+  }
+});
+
+// Device Registry Endpoints
+// Register a new device
+router.post('/devices', async (req, res) => {
+  try {
+    const { manufacturer, model, serial_number, hardware_nonce, device_wallet } = req.body;
+    
+    if (!manufacturer || !model || !serial_number || !hardware_nonce) {
+      return res.status(400).json({
+        error: 'Missing required fields: manufacturer, model, serial_number, hardware_nonce'
+      });
+    }
+    
+    const device = await registerDevice({
+      manufacturer,
+      model,
+      serialNumber: serial_number,
+      hardwareNonce: hardware_nonce,
+      deviceWallet: device_wallet
+    });
+    
+    res.status(201).json(device);
+  } catch (error) {
+    console.error('Error registering device:', error);
+    res.status(500).json({ error: 'Failed to register device', message: error.message });
+  }
+});
+
+// Get all devices
+router.get('/devices', async (req, res) => {
+  try {
+    const devices = await getAllDevices();
+    res.json(devices);
+  } catch (error) {
+    console.error('Error fetching devices:', error);
+    res.status(500).json({ error: 'Failed to fetch devices' });
+  }
+});
+
+// Get device by ID
+router.get('/devices/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const device = await getDevice(deviceId);
+    
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    
+    res.json(device);
+  } catch (error) {
+    console.error('Error fetching device:', error);
+    res.status(500).json({ error: 'Failed to fetch device' });
+  }
+});
+
+// Set device status
+router.patch('/devices/:deviceId/status', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { is_active } = req.body;
+    
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({ error: 'is_active must be a boolean' });
+    }
+    
+    const result = await setDeviceStatus(deviceId, is_active);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating device status:', error);
+    res.status(500).json({ error: 'Failed to update device status', message: error.message });
+  }
+});
+
+// Device Log Endpoints
+// Submit device log for tokenization
+router.post('/device-logs', async (req, res) => {
+  try {
+    const { device_id, log_entries, uri } = req.body;
+    
+    if (!device_id || !log_entries || !Array.isArray(log_entries) || log_entries.length === 0) {
+      return res.status(400).json({
+        error: 'Missing required fields: device_id, log_entries (non-empty array)'
+      });
+    }
+    
+    const result = await processDeviceLog(device_id, log_entries, uri || '');
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Error processing device log:', error);
+    res.status(500).json({ error: 'Failed to process device log', message: error.message });
+  }
+});
+
+// Command Log Endpoints
+// Submit command log for tokenization
+router.post('/command-logs', async (req, res) => {
+  try {
+    const { command_center_wallet, device_id, command_entries, uri } = req.body;
+    
+    if (!command_center_wallet || !command_entries || !Array.isArray(command_entries) || command_entries.length === 0) {
+      return res.status(400).json({
+        error: 'Missing required fields: command_center_wallet, command_entries (non-empty array)'
+      });
+    }
+    
+    const result = await processCommandLog(
+      command_center_wallet,
+      device_id || null,
+      command_entries,
+      uri || ''
+    );
+    res.status(201).json(result);
+  } catch (error) {
+    console.error('Error processing command log:', error);
+    res.status(500).json({ error: 'Failed to process command log', message: error.message });
+  }
+});
+
+// Verification Endpoint
+// Verify a log file by re-hashing and checking for matching token
+router.post('/verify-log', async (req, res) => {
+  try {
+    const { log_entries, is_command_log } = req.body;
+    
+    if (!log_entries || !Array.isArray(log_entries) || log_entries.length === 0) {
+      return res.status(400).json({
+        error: 'Missing required fields: log_entries (non-empty array)'
+      });
+    }
+    
+    const result = await verifyLog(log_entries, is_command_log || false);
+    res.json(result);
+  } catch (error) {
+    console.error('Error verifying log:', error);
+    res.status(500).json({ error: 'Failed to verify log', message: error.message });
   }
 });
 
