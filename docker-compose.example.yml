@@ -60,9 +60,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://152.42.239.238:3001/api
     container_name: iot_web3_frontend
-    environment:
-      VITE_API_URL: http://localhost:3001/api
     ports:
       - "3000:80"
     depends_on:
