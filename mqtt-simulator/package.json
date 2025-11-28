@@ -1,0 +1,15 @@
+{
+  "name": "mqtt-simulator",
+  "version": "1.0.0",
+  "description": "MQTT simulator for water quality sensor data",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.3.1",
+    "dotenv": "^16.3.1"
+  }
+}
+

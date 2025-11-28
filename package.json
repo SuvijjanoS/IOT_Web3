@@ -1,0 +1,21 @@
+{
+  "name": "iot-web3-water-quality",
+  "version": "1.0.0",
+  "description": "Industrial IoT + Web3 water quality monitoring system",
+  "private": true,
+  "workspaces": [
+    "contracts",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && cd contracts && npm install && cd ../backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "deploy:contract": "cd contracts && npm run deploy:sepolia"
+  },
+  "keywords": ["iot", "web3", "blockchain", "mqtt", "water-quality"],
+  "author": "",
+  "license": "MIT"
+}
+
