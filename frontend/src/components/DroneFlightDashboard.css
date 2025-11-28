@@ -164,6 +164,25 @@
   text-decoration: underline;
 }
 
+.blockchain-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.blockchain-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  text-decoration: none;
+  color: white;
+}
+
 .flight-details {
   background: white;
   border-radius: 8px;

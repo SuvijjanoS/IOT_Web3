@@ -148,29 +148,107 @@ function DataDashboard() {
       {loading && <div className="loading">Loading readings...</div>}
 
       {chartData.length > 0 && (
-        <div className="chart-container">
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart
-              data={chartData}
-              onClick={handlePointClick}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="timestamp" />
-              <YAxis label={{ value: getParameterLabel(parameter), angle: -90, position: 'insideLeft' }} />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey={parameter}
-                stroke="#667eea"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <>
+          <div className="chart-container">
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart
+                data={chartData}
+                onClick={handlePointClick}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="timestamp" />
+                <YAxis label={{ value: getParameterLabel(parameter), angle: -90, position: 'insideLeft' }} />
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="custom-tooltip">
+                          <p>{`${getParameterLabel(parameter)}: ${data[parameter]}`}</p>
+                          <p>{`Time: ${data.timestamp}`}</p>
+                          {data.tx_hash && (
+                            <a
+                              href={data.etherscanUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="tooltip-blockchain-link"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              🔗 View on Etherscan
+                            </a>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey={parameter}
+                  stroke="#667eea"
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="readings-list">
+            <h3>Recent Readings</h3>
+            <div className="readings-table-container">
+              <table className="readings-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>pH</th>
+                    <th>Temp (°C)</th>
+                    <th>Turbidity</th>
+                    <th>Status</th>
+                    <th>Blockchain</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {readings.slice(0, 10).map(reading => (
+                    <tr 
+                      key={reading.id}
+                      onClick={() => setSelectedReading(reading)}
+                      className="reading-row"
+                    >
+                      <td>{new Date(reading.ts).toLocaleString()}</td>
+                      <td>{reading.ph}</td>
+                      <td>{reading.temperature_c}</td>
+                      <td>{reading.turbidity_ntu} NTU</td>
+                      <td>
+                        <span className={`status-badge ${reading.status?.toLowerCase()}`}>
+                          {reading.status}
+                        </span>
+                      </td>
+                      <td>
+                        {reading.tx_hash ? (
+                          <a
+                            href={`${ETHERSCAN_BASE}${reading.tx_hash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="blockchain-badge"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            🔗 Block #{reading.block_number}
+                          </a>
+                        ) : (
+                          <span className="pending-badge">Pending</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       {chartData.length === 0 && !loading && selectedSensor && (
@@ -238,11 +316,26 @@ function DataDashboard() {
                     rel="noopener noreferrer"
                     className="etherscan-link"
                   >
-                    🔗 View on Etherscan (Sepolia)
+                    🔗 View Transaction on Etherscan (Sepolia)
                   </a>
-                  <div className="tx-hash">
-                    <span className="label">Transaction Hash:</span>
-                    <code>{selectedReading.tx_hash}</code>
+                  <div className="blockchain-info">
+                    <div className="tx-hash">
+                      <span className="label">Transaction Hash:</span>
+                      <code>{selectedReading.tx_hash}</code>
+                    </div>
+                    {selectedReading.block_number && (
+                      <div className="block-info">
+                        <span className="label">Block Number:</span>
+                        <a
+                          href={`https://sepolia.etherscan.io/block/${selectedReading.block_number}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block-link"
+                        >
+                          #{selectedReading.block_number}
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

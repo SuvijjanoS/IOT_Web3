@@ -198,10 +198,10 @@ function DroneFlightDashboard() {
                         href={`${ETHERSCAN_BASE}${flight.tx_hash}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="blockchain-link"
+                        className="blockchain-badge"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        View on Etherscan →
+                        🔗 Block #{flight.block_number || 'N/A'}
                       </a>
                     </div>
                   )}
@@ -251,17 +251,32 @@ function DroneFlightDashboard() {
                   <span className="value">{parseFloat(flightDetails.max_height_agl_m || 0).toFixed(1)}m</span>
                 </div>
                 {flightDetails.tx_hash && (
-                  <div className="detail-item">
-                    <span className="label">Blockchain:</span>
-                    <a
-                      href={`${ETHERSCAN_BASE}${flightDetails.tx_hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="value blockchain-link"
-                    >
-                      View Transaction (Block #{flightDetails.block_number})
-                    </a>
-                  </div>
+                  <>
+                    <div className="detail-item">
+                      <span className="label">Transaction:</span>
+                      <a
+                        href={`${ETHERSCAN_BASE}${flightDetails.tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="value blockchain-link"
+                      >
+                        🔗 View Transaction on Etherscan
+                      </a>
+                    </div>
+                    {flightDetails.block_number && (
+                      <div className="detail-item">
+                        <span className="label">Block Number:</span>
+                        <a
+                          href={`https://sepolia.etherscan.io/block/${flightDetails.block_number}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="value blockchain-link"
+                        >
+                          🔗 Block #{flightDetails.block_number}
+                        </a>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

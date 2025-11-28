@@ -223,6 +223,154 @@
   overflow-y: auto;
 }
 
+.readings-list {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-top: 2rem;
+}
+
+.readings-list h3 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.readings-table-container {
+  overflow-x: auto;
+}
+
+.readings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.readings-table thead {
+  background: #f8f9fa;
+}
+
+.readings-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #ddd;
+}
+
+.readings-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #eee;
+}
+
+.reading-row {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.reading-row:hover {
+  background: #f8f9fa;
+}
+
+.blockchain-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.blockchain-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.pending-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #fff3cd;
+  color: #856404;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.ok {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.alert_turbidity {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.custom-tooltip {
+  background: white;
+  padding: 0.75rem;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid #ddd;
+}
+
+.custom-tooltip p {
+  margin: 0.25rem 0;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.tooltip-blockchain-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.tooltip-blockchain-link:hover {
+  opacity: 0.9;
+}
+
+.blockchain-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.block-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.block-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.block-link:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .dashboard-header {
     flex-direction: column;
