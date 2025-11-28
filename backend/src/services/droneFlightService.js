@@ -91,7 +91,10 @@ export async function processDroneFlightLog(flightLog) {
         max_height_agl_m, max_alt_asl_m, max_h_speed_ms,
         log_hash, raw_json, tokenization_status
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-      ON CONFLICT (flight_id) DO NOTHING
+      ON CONFLICT (flight_id) DO UPDATE SET
+        drone_id = EXCLUDED.drone_id,
+        started_at_utc = EXCLUDED.started_at_utc,
+        samples_count = EXCLUDED.samples_count
       RETURNING id
     `;
 
@@ -109,9 +112,9 @@ export async function processDroneFlightLog(flightLog) {
       flightLog.samples_hz || null,
       samples.length,
       durationS,
-      maxHeightAgl,
-      maxAltAsl,
-      maxHSpeed,
+      maxHeightAgl || 0,
+      maxAltAsl || 0,
+      maxHSpeed || 0,
       '\\x' + logHashBytes.toString('hex'),
       JSON.stringify(flightLog),
       'PENDING'
