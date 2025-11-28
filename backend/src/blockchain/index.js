@@ -3,8 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Contract ABI (minimal interface)
-const CONTRACT_ABI = [
+// Water Quality Contract ABI (minimal interface)
+const WATER_QUALITY_ABI = [
   "function recordReading(string calldata sensorId, uint256 timestamp, bytes32 dataHash) external",
   "function recordCommand(string calldata sensorId, string calldata relayId, string calldata command, uint256 timestamp, bytes32 commandHash) external",
   "function getReading(string calldata sensorId, uint256 timestamp) external view returns (bytes32 dataHash, uint256 timestamp, string memory sensorId, address recorder)",
@@ -12,12 +12,21 @@ const CONTRACT_ABI = [
   "event CommandRecorded(string indexed sensorId, string indexed relayId, string command, uint256 timestamp, bytes32 commandHash, address indexed recorder)"
 ];
 
+// Drone Flight Contract ABI
+const DRONE_FLIGHT_ABI = [
+  "function recordFlight(string calldata flightId, string calldata droneId, string calldata droneModel, uint256 startedAt, bytes32 logHash, uint256 samplesCount, uint256 durationS) external",
+  "function getFlight(string calldata flightId, string calldata droneId, uint256 startedAt) external view returns (bytes32 logHash, uint256 startedAt, string memory flightId, string memory droneId, string memory droneModel, address recorder, uint256 samplesCount, uint256 durationS)",
+  "function getDroneFlights(string calldata droneId) external view returns (bytes32[] memory)",
+  "event FlightRecorded(string indexed flightId, string indexed droneId, uint256 indexed startedAt, bytes32 logHash, string droneModel, uint256 samplesCount, address recorder)"
+];
+
 let provider = null;
-let contract = null;
+let waterQualityContract = null;
+let droneFlightContract = null;
 let signer = null;
 
 export function initializeBlockchain() {
-  if (!process.env.SEPOLIA_RPC_URL || !process.env.CONTRACT_ADDRESS || !process.env.PRIVATE_KEY) {
+  if (!process.env.SEPOLIA_RPC_URL || !process.env.PRIVATE_KEY) {
     console.warn('Blockchain configuration missing. Blockchain features will be disabled.');
     return false;
   }
@@ -25,8 +34,17 @@ export function initializeBlockchain() {
   try {
     provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
     signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-    contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-    console.log('Blockchain initialized. Contract address:', process.env.CONTRACT_ADDRESS);
+    
+    if (process.env.CONTRACT_ADDRESS) {
+      waterQualityContract = new ethers.Contract(process.env.CONTRACT_ADDRESS, WATER_QUALITY_ABI, signer);
+      console.log('Water Quality Contract initialized. Address:', process.env.CONTRACT_ADDRESS);
+    }
+    
+    if (process.env.DRONE_FLIGHT_CONTRACT_ADDRESS) {
+      droneFlightContract = new ethers.Contract(process.env.DRONE_FLIGHT_CONTRACT_ADDRESS, DRONE_FLIGHT_ABI, signer);
+      console.log('Drone Flight Contract initialized. Address:', process.env.DRONE_FLIGHT_CONTRACT_ADDRESS);
+    }
+    
     return true;
   } catch (error) {
     console.error('Failed to initialize blockchain:', error.message);
@@ -35,7 +53,11 @@ export function initializeBlockchain() {
 }
 
 export function getContract() {
-  return contract;
+  return waterQualityContract;
+}
+
+export function getDroneFlightContract() {
+  return droneFlightContract;
 }
 
 export function getProvider() {
@@ -78,12 +100,12 @@ export async function recordReadingOnChain(sensorId, timestamp, dataHash) {
  * Record a command on-chain
  */
 export async function recordCommandOnChain(sensorId, relayId, command, timestamp, commandHash) {
-  if (!contract) {
+  if (!waterQualityContract) {
     throw new Error('Blockchain not initialized');
   }
 
   try {
-    const tx = await contract.recordCommand(sensorId, relayId, command, timestamp, commandHash);
+    const tx = await waterQualityContract.recordCommand(sensorId, relayId, command, timestamp, commandHash);
     const receipt = await tx.wait();
     return {
       txHash: receipt.hash,
@@ -91,6 +113,35 @@ export async function recordCommandOnChain(sensorId, relayId, command, timestamp
     };
   } catch (error) {
     console.error('Failed to record command on-chain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Record a drone flight on-chain
+ */
+export async function recordFlightOnChain(flightId, droneId, droneModel, startedAt, logHash, samplesCount, durationS) {
+  if (!droneFlightContract) {
+    throw new Error('Drone Flight Contract not initialized');
+  }
+
+  try {
+    const tx = await droneFlightContract.recordFlight(
+      flightId,
+      droneId,
+      droneModel,
+      startedAt,
+      logHash,
+      samplesCount,
+      durationS
+    );
+    const receipt = await tx.wait();
+    return {
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber
+    };
+  } catch (error) {
+    console.error('Failed to record flight on-chain:', error);
     throw error;
   }
 }

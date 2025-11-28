@@ -17,5 +17,14 @@ export const sendControlCommand = (sensorId, relayId, state, durationSec) =>
 export const getControlHistory = (sensorId, limit = 50) =>
   api.get(`/control/history/${sensorId}`, { params: { limit } });
 
+// Drone Flight APIs
+export const submitDroneFlightLog = (flightLog) => api.post('/v1/drone-logs', flightLog);
+export const getDroneFlights = (limit = 50, offset = 0) =>
+  api.get('/drone-flights', { params: { limit, offset } });
+export const getFlightById = (flightId) => api.get(`/drone-flights/${flightId}`);
+export const getAllDrones = () => api.get('/drones');
+export const getFlightsByDroneId = (droneId, limit = 50) =>
+  api.get(`/drones/${droneId}/flights`, { params: { limit } });
+
 export default api;
 
