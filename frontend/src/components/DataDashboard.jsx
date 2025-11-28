@@ -62,7 +62,9 @@ function DataDashboard() {
     status: reading.status,
     raw_json: reading.raw_json,
     tx_hash: reading.tx_hash,
-    id: reading.id
+    block_number: reading.block_number,
+    id: reading.id,
+    etherscanUrl: reading.tx_hash ? `${ETHERSCAN_BASE}${reading.tx_hash}` : null
   }));
 
   const handlePointClick = (data) => {
