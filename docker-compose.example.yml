@@ -26,11 +26,7 @@ services:
       - "9001:9001"
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-    healthcheck:
-      test: ["CMD", "mosquitto_sub", "-h", "localhost", "-t", "test", "-C", "1", "-W", "1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # Health check removed - MQTT starts quickly and health check was causing issues
 
   backend:
     build:
@@ -57,7 +53,7 @@ services:
       postgres:
         condition: service_healthy
       mqtt:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
   frontend:
