@@ -7,14 +7,9 @@ function BlockchainStatus({ status, txHash, blockNumber }) {
       <div className="blockchain-status pending">
         <span className="status-icon">⏳</span>
         <span className="status-text">Blockchain: Pending</span>
-        <a 
-          href="/BLOCKCHAIN_SETUP.md" 
-          target="_blank"
-          className="setup-link"
-          title="Click to see setup instructions"
-        >
-          (Setup Required)
-        </a>
+        <span className="status-note" title="Contracts are deployed. Tokenization will happen automatically on next processing.">
+          (Contracts Deployed - Processing)
+        </span>
       </div>
     );
   }
