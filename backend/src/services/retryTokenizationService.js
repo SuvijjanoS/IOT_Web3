@@ -170,8 +170,6 @@ export async function retryPendingFlights(limit = 50) {
  * Simulate and tokenize a test reading
  */
 export async function simulateAndTokenizeReading() {
-  const client = await pool.connect();
-  
   try {
     // Create a test reading
     const testReading = {
@@ -192,46 +190,13 @@ export async function simulateAndTokenizeReading() {
       }
     };
 
-    const ts = new Date(testReading.ts);
-    const rawJsonString = JSON.stringify(testReading);
-    const dataHash = hashData(rawJsonString);
-    const dataHashHex = '\\x' + Buffer.from(dataHash.slice(2), 'hex').toString('hex');
-
-    // Insert into database
-    const insertQuery = `
-      INSERT INTO water_readings (
-        sensor_id, ts, ph, temperature_c, turbidity_ntu, tds_mg_l,
-        dissolved_oxygen_mg_l, battery_pct, status, location_lat, location_lng,
-        raw_json, data_hash
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING id
-    `;
-
-    const result = await client.query(insertQuery, [
-      testReading.sensor_id,
-      ts,
-      testReading.parameters.ph,
-      testReading.parameters.temperature_c,
-      testReading.parameters.turbidity_ntu,
-      testReading.parameters.tds_mg_l,
-      testReading.parameters.dissolved_oxygen_mg_l,
-      testReading.battery_pct,
-      testReading.status,
-      testReading.location.lat,
-      testReading.location.lng,
-      rawJsonString,
-      dataHashHex
-    ]);
-
-    const readingId = result.rows[0].id;
-
-    // Use processSensorReading to tokenize each parameter separately
-    // This will create datapoints and tokenize them individually
+    // Use processSensorReading which handles per-datapoint tokenization
+    // This will create the reading AND tokenize each parameter separately
     const { processSensorReading } = await import('./sensorService.js');
     const topic = `water/quality/${testReading.sensor_id}`;
     
-    // Process the reading (this will create datapoints and tokenize them)
-    await processSensorReading(topic, testReading);
+    // Process the reading (this creates reading, datapoints, and tokenizes them)
+    const readingId = await processSensorReading(topic, testReading);
 
     // Get datapoints that were created
     const datapointsQuery = `
@@ -251,9 +216,7 @@ export async function simulateAndTokenizeReading() {
     };
   } catch (error) {
     console.error('Failed to simulate and tokenize reading:', error);
-    throw error;
-  } finally {
-    client.release();
+    return { success: false, error: error.message };
   }
 }
 
