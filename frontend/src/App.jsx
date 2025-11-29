@@ -5,7 +5,7 @@ import DataDashboard from './components/DataDashboard';
 import ControlDashboard from './components/ControlDashboard';
 import Web3Process from './components/Web3Process';
 import DroneFlightDashboard from './components/DroneFlightDashboard';
-import APIIntegrationGuide from './components/APIIntegrationGuide';
+import AdminConfiguration from './components/AdminConfiguration';
 import BlockchainInfo from './components/BlockchainInfo';
 import TokenizationControl from './components/TokenizationControl';
 import './App.css';
@@ -27,7 +27,7 @@ function App() {
               <Link to="/control" className="nav-link">Control Panel</Link>
                   <Link to="/blockchain" className="nav-link">Blockchain Info</Link>
                   <Link to="/tokenization" className="nav-link">Tokenization Control</Link>
-                  <Link to="/api-guide" className="nav-link">API Guide</Link>
+                  <Link to="/admin" className="nav-link">Admin Config</Link>
             </div>
           </div>
         </nav>
@@ -41,7 +41,7 @@ function App() {
             <Route path="/control" element={<ControlDashboard />} />
                 <Route path="/blockchain" element={<BlockchainInfo />} />
                 <Route path="/tokenization" element={<TokenizationControl />} />
-                <Route path="/api-guide" element={<APIIntegrationGuide />} />
+                <Route path="/admin" element={<AdminConfiguration />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
