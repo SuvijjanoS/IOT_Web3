@@ -216,7 +216,7 @@ function generateMavic3EnterpriseFlight(locationName, location, flightNumber) {
   return {
     flight_id: flightId,
     drone_id: droneId,
-    drone_model: 'DJI Mavic 3 Enterprise',
+    drone_model: 'DJI Mavic 3',
     started_at_utc: startedAt.toISOString(),
     firmware_version: '01.01.1200',
     app_name: 'DJI Pilot 2',
@@ -268,10 +268,17 @@ async function importFlights() {
       console.error(`   ❌ Failed to import flight:`);
       if (error.response) {
         console.error(`   Status: ${error.response.status}`);
-        console.error(`   Error: ${JSON.stringify(error.response.data, null, 2)}\n`);
+        console.error(`   Error: ${JSON.stringify(error.response.data, null, 2)}`);
+        if (error.response.data?.message) {
+          console.error(`   Message: ${error.response.data.message}`);
+        }
+      } else if (error.request) {
+        console.error(`   Network Error: No response from server`);
+        console.error(`   URL: ${API_URL}`);
       } else {
-        console.error(`   Error: ${error.message}\n`);
+        console.error(`   Error: ${error.message}`);
       }
+      console.error('');
     }
     
     // Wait between imports to avoid overwhelming the server
