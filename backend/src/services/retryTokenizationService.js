@@ -225,32 +225,29 @@ export async function simulateAndTokenizeReading() {
 
     const readingId = result.rows[0].id;
 
-    // Tokenize immediately - find device wallet for this sensor
-    const timestampUnix = Math.floor(ts.getTime() / 1000);
-    const { deviceWallet, deviceId } = await findDeviceWalletForSensorOrDrone(testReading.sensor_id, null, null);
+    // Use processSensorReading to tokenize each parameter separately
+    // This will create datapoints and tokenize them individually
+    const { processSensorReading } = await import('./sensorService.js');
+    const topic = `water/quality/${testReading.sensor_id}`;
+    
+    // Process the reading (this will create datapoints and tokenize them)
+    await processSensorReading(topic, testReading);
 
-    const blockchainResult = await mintLogToken(
-      deviceWallet,
-      deviceId,
-      dataHash,
-      'DEVICE_LOG',
-      timestampUnix,
-      ''
-    );
-
-    // Update database with tx hash
-    await client.query(
-      'UPDATE water_readings SET tx_hash = $1, block_number = $2 WHERE id = $3',
-      [blockchainResult.txHash, blockchainResult.blockNumber, readingId]
-    );
+    // Get datapoints that were created
+    const datapointsQuery = `
+      SELECT parameter_name, COUNT(*) as count, COUNT(token_id) as tokenized_count
+      FROM sensor_datapoints
+      WHERE reading_id = $1
+      GROUP BY parameter_name
+    `;
+    const datapointsResult = await client.query(datapointsQuery, [readingId]);
 
     return {
       success: true,
       readingId,
-      tokenId: blockchainResult.tokenId,
-      txHash: blockchainResult.txHash,
-      blockNumber: blockchainResult.blockNumber,
-      reading: testReading
+      datapoints: datapointsResult.rows,
+      reading: testReading,
+      message: 'Reading processed with per-datapoint tokenization'
     };
   } catch (error) {
     console.error('Failed to simulate and tokenize reading:', error);
