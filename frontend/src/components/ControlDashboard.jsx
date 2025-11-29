@@ -199,16 +199,41 @@ function ControlDashboard() {
                       <td>{cmd.duration_sec ? formatDuration(cmd.duration_sec) : '-'}</td>
                       <td>
                         {cmd.tx_hash ? (
-                          <a
-                            href={`${ETHERSCAN_BASE}${cmd.tx_hash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="tx-link"
-                          >
-                            View
-                          </a>
+                          <div className="blockchain-status-confirmed">
+                            <span className="status-icon">✅</span>
+                            <a
+                              href={`${ETHERSCAN_BASE}${cmd.tx_hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="tx-link"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              View Transaction
+                            </a>
+                            {cmd.block_number && (
+                              <a
+                                href={`https://sepolia.etherscan.io/block/${cmd.block_number}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block-link"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Block #{cmd.block_number}
+                              </a>
+                            )}
+                          </div>
                         ) : (
-                          <span className="pending">Pending</span>
+                          <div className="blockchain-status-pending">
+                            <span className="status-icon">⏳</span>
+                            <span className="pending-text">Processing...</span>
+                            <button
+                              className="refresh-btn"
+                              onClick={() => loadCommandHistory()}
+                              title="Refresh status"
+                            >
+                              🔄 Refresh
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
