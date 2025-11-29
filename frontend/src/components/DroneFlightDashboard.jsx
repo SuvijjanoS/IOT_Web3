@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, ZAxis } from 'recharts';
-import { getDroneFlights, getAllDrones, getFlightById } from '../api';
+import { getDroneFlights, getAllDrones, getFlightById, getFlightsByDroneId } from '../api';
 import './DroneFlightDashboard.css';
 
 const ETHERSCAN_BASE = 'https://sepolia.etherscan.io/tx/';
