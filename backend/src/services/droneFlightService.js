@@ -1,5 +1,6 @@
 import pool from '../db/index.js';
 import { mintLogToken } from '../blockchain/index.js';
+import { findDeviceWalletForSensorOrDrone } from './deviceService.js';
 import crypto from 'crypto';
 
 /**
@@ -182,19 +183,16 @@ export async function processDroneFlightLog(flightLog) {
       const startedAtUnix = Math.floor(startedAt.getTime() / 1000);
       const logHashBytes32 = '0x' + logHashHex;
       
-      // Use command center wallet as owner (drones may not be registered as devices yet)
-      const commandCenterWallet = process.env.COMMAND_CENTER_WALLET || '0x23e224b79344d96fc00Ce7BdE1D5552d720a027b';
-      
-      // Use zero address as deviceId for unregistered drones
-      const deviceIdHex = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      // Find device wallet for this drone (or use command center wallet as fallback)
+      const { deviceWallet, deviceId } = await findDeviceWalletForSensorOrDrone(null, flightLog.drone_id, flightLog.drone_model);
       
       const result = await mintLogToken(
-        commandCenterWallet,  // Token owner
-        deviceIdHex,           // Device ID (zero for unregistered drones)
-        logHashBytes32,        // Log hash
-        'DEVICE_LOG',          // Log type
-        startedAtUnix,         // Timestamp
-        ''                     // URI (empty for now)
+        deviceWallet,   // Token owner (device wallet or command center wallet)
+        deviceId,        // Device ID (computed or zero)
+        logHashBytes32, // Log hash
+        'DEVICE_LOG',   // Log type
+        startedAtUnix,  // Timestamp
+        ''              // URI (empty for now)
       );
 
       // Update flight with on-chain info

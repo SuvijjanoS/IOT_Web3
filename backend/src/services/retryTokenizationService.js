@@ -50,13 +50,12 @@ export async function retryPendingReadings(limit = 50) {
           logHashBytes32 = hashData(rawJsonString);
         }
         
-        // Use command center wallet as owner
-        const commandCenterWallet = process.env.COMMAND_CENTER_WALLET || '0x23e224b79344d96fc00Ce7BdE1D5552d720a027b';
-        const deviceIdHex = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        // Find device wallet for this sensor (or use command center wallet as fallback)
+        const { deviceWallet, deviceId } = await findDeviceWalletForSensorOrDrone(reading.sensor_id, null, null);
         
         const blockchainResult = await mintLogToken(
-          commandCenterWallet,
-          deviceIdHex,
+          deviceWallet,
+          deviceId,
           logHashBytes32,
           'DEVICE_LOG',
           timestampUnix,
@@ -103,7 +102,7 @@ export async function retryPendingFlights(limit = 50) {
   try {
     // Get pending flights
     const pendingQuery = `
-      SELECT flight_id, drone_id, started_at_utc, log_hash
+      SELECT flight_id, drone_id, drone_model, started_at_utc, log_hash
       FROM drone_flights
       WHERE tokenization_status = 'PENDING' OR tx_hash IS NULL
       ORDER BY started_at_utc ASC
@@ -131,13 +130,12 @@ export async function retryPendingFlights(limit = 50) {
           continue;
         }
         
-        // Use command center wallet as owner
-        const commandCenterWallet = process.env.COMMAND_CENTER_WALLET || '0x23e224b79344d96fc00Ce7BdE1D5552d720a027b';
-        const deviceIdHex = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        // Find device wallet for this drone (or use command center wallet as fallback)
+        const { deviceWallet, deviceId } = await findDeviceWalletForSensorOrDrone(null, flight.drone_id, flight.drone_model);
         
         const blockchainResult = await mintLogToken(
-          commandCenterWallet,
-          deviceIdHex,
+          deviceWallet,
+          deviceId,
           logHashBytes32,
           'DEVICE_LOG',
           startedAtUnix,
@@ -227,14 +225,13 @@ export async function simulateAndTokenizeReading() {
 
     const readingId = result.rows[0].id;
 
-    // Tokenize immediately
+    // Tokenize immediately - find device wallet for this sensor
     const timestampUnix = Math.floor(ts.getTime() / 1000);
-    const commandCenterWallet = process.env.COMMAND_CENTER_WALLET || '0x23e224b79344d96fc00Ce7BdE1D5552d720a027b';
-    const deviceIdHex = '0x0000000000000000000000000000000000000000000000000000000000000000';
+    const { deviceWallet, deviceId } = await findDeviceWalletForSensorOrDrone(testReading.sensor_id, null, null);
 
     const blockchainResult = await mintLogToken(
-      commandCenterWallet,
-      deviceIdHex,
+      deviceWallet,
+      deviceId,
       dataHash,
       'DEVICE_LOG',
       timestampUnix,

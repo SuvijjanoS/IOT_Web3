@@ -1,5 +1,6 @@
 import pool from '../db/index.js';
 import { hashData, mintLogToken } from '../blockchain/index.js';
+import { findDeviceWalletForSensorOrDrone } from './deviceService.js';
 
 /**
  * Process and store a sensor reading
@@ -57,19 +58,16 @@ export async function processSensorReading(topic, data) {
       const timestampUnix = Math.floor(ts.getTime() / 1000);
       const logHashBytes32 = dataHash; // Already in 0x format from hashData
       
-      // Use command center wallet as owner (sensors may not be registered as devices)
-      const commandCenterWallet = process.env.COMMAND_CENTER_WALLET || '0x23e224b79344d96fc00Ce7BdE1D5552d720a027b';
-      
-      // Use zero address as deviceId for unregistered sensors
-      const deviceIdHex = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      // Find device wallet for this sensor (or use command center wallet as fallback)
+      const { deviceWallet, deviceId } = await findDeviceWalletForSensorOrDrone(sensorId, null, null);
       
       const blockchainResult = await mintLogToken(
-        commandCenterWallet,  // Token owner
-        deviceIdHex,           // Device ID (zero for unregistered sensors)
-        logHashBytes32,        // Log hash
-        'DEVICE_LOG',          // Log type
-        timestampUnix,         // Timestamp
-        ''                     // URI (empty for now)
+        deviceWallet,   // Token owner (device wallet or command center wallet)
+        deviceId,        // Device ID (computed or zero)
+        logHashBytes32, // Log hash
+        'DEVICE_LOG',   // Log type
+        timestampUnix,  // Timestamp
+        ''              // URI (empty for now)
       );
       
       // Update database with tx hash

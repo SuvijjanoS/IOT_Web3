@@ -166,6 +166,66 @@ export async function getAllDevices() {
 }
 
 /**
+ * Find device wallet by sensor_id or drone_id
+ * For drones: computes deviceId from DJI + model + drone_id + hardware_nonce
+ * For sensors: tries to find device by serial_number matching sensor_id
+ * Returns device wallet if found, otherwise returns command center wallet
+ */
+export async function findDeviceWalletForSensorOrDrone(sensorId, droneId, droneModel) {
+  const commandCenterWallet = process.env.COMMAND_CENTER_WALLET || '0x23e224b79344d96fc00Ce7BdE1D5552d720a027b';
+  
+  try {
+    if (droneId && droneModel) {
+      // For drones: compute deviceId and look up device
+      const { computeDeviceId } = await import('../utils/canonicalize.js');
+      // Try common hardware nonces used for drones
+      const hardwareNonces = ['HW003', 'HW001', 'HW002'];
+      
+      for (const hwNonce of hardwareNonces) {
+        const deviceIdHex = computeDeviceId('DJI', droneModel, droneId, hwNonce);
+        const device = await getDevice(deviceIdHex);
+        if (device && device.isActive) {
+          return { deviceWallet: device.deviceWallet, deviceId: deviceIdHex };
+        }
+      }
+      
+      // Also try looking up by serial_number matching drone_id
+      const query = `
+        SELECT device_wallet, device_id
+        FROM devices
+        WHERE serial_number = $1 AND manufacturer = 'DJI' AND is_active = true
+        LIMIT 1
+      `;
+      const result = await pool.query(query, [droneId]);
+      if (result.rows.length > 0) {
+        const deviceId = '0x' + result.rows[0].device_id.toString('hex').replace(/^00/, '');
+        return { deviceWallet: result.rows[0].device_wallet, deviceId };
+      }
+    }
+    
+    if (sensorId) {
+      // For sensors: try to find device by serial_number matching sensor_id
+      const query = `
+        SELECT device_wallet, device_id
+        FROM devices
+        WHERE serial_number = $1 AND is_active = true
+        LIMIT 1
+      `;
+      const result = await pool.query(query, [sensorId]);
+      if (result.rows.length > 0) {
+        const deviceId = '0x' + result.rows[0].device_id.toString('hex').replace(/^00/, '');
+        return { deviceWallet: result.rows[0].device_wallet, deviceId };
+      }
+    }
+  } catch (error) {
+    console.error('Error finding device wallet:', error);
+  }
+  
+  // Fallback to command center wallet
+  return { deviceWallet: commandCenterWallet, deviceId: '0x0000000000000000000000000000000000000000000000000000000000000000' };
+}
+
+/**
  * Set device active/inactive status
  */
 export async function setDeviceStatus(deviceIdHex, isActive) {
