@@ -32,6 +32,20 @@ function DroneFlightDashboard() {
     }
   }, [selectedFlight]);
 
+  // Helper function to format flight ID
+  const formatFlightId = (flightId) => {
+    if (!flightId) return 'Unknown';
+    // Remove MAVIC3E_FLIGHT_ prefix and replace underscores with spaces
+    let formatted = flightId.replace(/^MAVIC3E_FLIGHT_/i, '');
+    formatted = formatted.replace(/_/g, ' ');
+    // Extract location name (first part before numbers)
+    const parts = formatted.split(/\d/);
+    if (parts.length > 0) {
+      return parts[0].trim();
+    }
+    return formatted.substring(0, 30);
+  };
+
   const loadDrones = async () => {
     try {
       const response = await getAllDrones();
@@ -164,8 +178,13 @@ function DroneFlightDashboard() {
                 onClick={() => setSelectedFlight(flight.flight_id)}
               >
                 <div className="flight-card-header">
-                  <h4>{flight.flight_id}</h4>
-                  <span className={`status-badge ${flight.tokenization_status?.toLowerCase()}`}>
+                  <h4 title={flight.flight_id}>
+                    {formatFlightId(flight.flight_id)}
+                  </h4>
+                  <span 
+                    className={`status-badge ${flight.tokenization_status?.toLowerCase()}`}
+                    title={flight.tokenization_status === 'PENDING' ? 'Flight log recorded but not yet tokenized on blockchain. Will be recorded once blockchain contracts are deployed.' : 'Flight log tokenized on blockchain'}
+                  >
                     {flight.tokenization_status || 'PENDING'}
                   </span>
                 </div>
