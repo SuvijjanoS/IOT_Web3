@@ -55,7 +55,7 @@ function generateMavic3EnterpriseFlight(locationName, location, flightNumber) {
   
   // Flight parameters
   const durationSeconds = 30 * 60; // 30 minutes
-  const sampleRateMs = 500; // 2 Hz sampling
+  const sampleRateMs = 2000; // 0.5 Hz sampling (reduced to keep payload < 1MB)
   const numSamples = Math.floor((durationSeconds * 1000) / sampleRateMs);
   const targetSpeed = 10.0; // m/s
   const targetAltitudeMin = 80.0; // meters AGL
