@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, ZAxis } from 'recharts';
 import { getDroneFlights, getAllDrones, getFlightById, getFlightsByDroneId } from '../api';
+import BlockchainDetailsModal from './BlockchainDetailsModal';
 import './DroneFlightDashboard.css';
 
 const ETHERSCAN_BASE = 'https://sepolia.etherscan.io/tx/';
@@ -13,6 +14,8 @@ function DroneFlightDashboard() {
   const [flightDetails, setFlightDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [parameter, setParameter] = useState('height_agl_m');
+  const [showBlockchainModal, setShowBlockchainModal] = useState(false);
+  const [selectedFlightForModal, setSelectedFlightForModal] = useState(null);
 
   useEffect(() => {
     loadDrones();
@@ -178,15 +181,24 @@ function DroneFlightDashboard() {
                 onClick={() => setSelectedFlight(flight.flight_id)}
               >
                 <div className="flight-card-header">
-                  <h4 title={flight.flight_id}>
+                  <h4 title={flight.flight_id} className="flight-title">
                     {formatFlightId(flight.flight_id)}
                   </h4>
-                  <span 
-                    className={`status-badge ${flight.tokenization_status?.toLowerCase()}`}
-                    title={flight.tokenization_status === 'PENDING' ? 'Flight log recorded but not yet tokenized on blockchain. Contracts are deployed - tokenization will happen automatically on next processing.' : flight.tokenization_status === 'ON_CHAIN' ? 'Flight log tokenized on blockchain' : 'Status: ' + (flight.tokenization_status || 'PENDING')}
+                  <div 
+                    className={`status-badge-clickable ${flight.tokenization_status?.toLowerCase()}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (flight.tx_hash) {
+                        window.open(`https://sepolia.etherscan.io/tx/${flight.tx_hash}`, '_blank');
+                      } else {
+                        setSelectedFlightForModal(flight);
+                        setShowBlockchainModal(true);
+                      }
+                    }}
+                    title={flight.tx_hash ? 'Click to view on Etherscan' : 'Click to view blockchain details'}
                   >
                     {flight.tokenization_status || 'PENDING'}
-                  </span>
+                  </div>
                 </div>
                 <div className="flight-card-body">
                   <div className="flight-stat">
@@ -336,9 +348,10 @@ function DroneFlightDashboard() {
                 </div>
 
                 <div className="details-section">
-                  <h4>Flight Path (GPS)</h4>
+                  <h4>Flight Path (GPS Trajectory)</h4>
+                  <p className="section-description">Flight trajectory showing GPS coordinates over time - multiple waypoints forming the flight path</p>
                   <div className="chart-container">
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={500}>
                       <ScatterChart>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis 
@@ -346,25 +359,56 @@ function DroneFlightDashboard() {
                           dataKey="lon" 
                           name="Longitude"
                           label={{ value: 'Longitude', position: 'insideBottom', offset: -5 }}
+                          domain={['dataMin - 0.001', 'dataMax + 0.001']}
                         />
                         <YAxis 
                           type="number" 
                           dataKey="lat" 
                           name="Latitude"
                           label={{ value: 'Latitude', angle: -90, position: 'insideLeft' }}
+                          domain={['dataMin - 0.001', 'dataMax + 0.001']}
                         />
-                        <ZAxis type="number" dataKey="height_agl_m" name="Height" />
-                        <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                        <ZAxis type="number" dataKey="height_agl_m" name="Height (m)" range={[50, 400]} />
+                        <Tooltip 
+                          cursor={{ strokeDasharray: '3 3' }}
+                          formatter={(value, name) => {
+                            if (name === 'Height (m)') return `${parseFloat(value).toFixed(1)}m`;
+                            if (name === 'Longitude') return parseFloat(value).toFixed(7);
+                            if (name === 'Latitude') return parseFloat(value).toFixed(7);
+                            return value;
+                          }}
+                        />
                         <Legend />
-                        <Scatter name="Flight Path" data={chartData} fill="#667eea" />
+                        <Scatter 
+                          name="Flight Trajectory" 
+                          data={chartData} 
+                          fill="#667eea"
+                          fillOpacity={0.7}
+                          line={{ stroke: '#667eea', strokeWidth: 2 }}
+                        />
                       </ScatterChart>
                     </ResponsiveContainer>
+                  </div>
+                  <div className="trajectory-info">
+                    <p><strong>Total GPS Points:</strong> {chartData.length}</p>
+                    <p><strong>Flight Pattern:</strong> Circular patrol pattern around location</p>
                   </div>
                 </div>
               </>
             )}
           </div>
         </div>
+      )}
+
+      {showBlockchainModal && selectedFlightForModal && (
+        <BlockchainDetailsModal
+          flightId={selectedFlightForModal.flight_id}
+          droneId={selectedFlightForModal.drone_id}
+          onClose={() => {
+            setShowBlockchainModal(false);
+            setSelectedFlightForModal(null);
+          }}
+        />
       )}
     </div>
   );

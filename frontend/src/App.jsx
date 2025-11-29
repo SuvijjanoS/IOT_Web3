@@ -16,7 +16,7 @@ function App() {
         <nav className="navbar">
           <div className="nav-container">
             <Link to="/" className="nav-title-link">
-              <h1 className="nav-title">🌊 IoT Web3 Water Quality Monitor</h1>
+              <h1 className="nav-title">🔗 Web3 Industrial IOT and UAV</h1>
             </Link>
             <div className="nav-links">
               <Link to="/" className="nav-link">Home</Link>

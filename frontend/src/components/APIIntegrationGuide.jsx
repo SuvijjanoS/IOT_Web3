@@ -1,16 +1,53 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getAllDevices, getAllDrones, getSensors } from '../api';
 import './APIIntegrationGuide.css';
 
 function APIIntegrationGuide() {
   // Get base URL for API endpoints
   const apiBaseUrl = window.location.origin;
+  const [refreshing, setRefreshing] = useState(false);
+  const [deviceCount, setDeviceCount] = useState(null);
+  const [droneCount, setDroneCount] = useState(null);
+  const [sensorCount, setSensorCount] = useState(null);
+  
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const [devicesRes, dronesRes, sensorsRes] = await Promise.all([
+        getAllDevices().catch(() => ({ data: [] })),
+        getAllDrones().catch(() => ({ data: [] })),
+        getSensors().catch(() => ({ data: [] }))
+      ]);
+      setDeviceCount(devicesRes.data?.length || 0);
+      setDroneCount(dronesRes.data?.length || 0);
+      setSensorCount(sensorsRes.data?.length || 0);
+    } catch (error) {
+      console.error('Failed to refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
   
   return (
     <div className="api-integration-guide">
       <div className="guide-header">
         <h1>📡 API Integration Guide</h1>
         <p className="subtitle">Connect your sensors and devices to ingest data and tokenize on-chain</p>
+        <button 
+          className="refresh-api-btn"
+          onClick={handleRefresh}
+          disabled={refreshing}
+        >
+          {refreshing ? '🔄 Refreshing...' : '🔄 Refresh Device List'}
+        </button>
+        {(deviceCount !== null || droneCount !== null || sensorCount !== null) && (
+          <div className="device-counts">
+            <span>Devices: {deviceCount || 0}</span>
+            <span>Drones: {droneCount || 0}</span>
+            <span>Sensors: {sensorCount || 0}</span>
+          </div>
+        )}
       </div>
 
       <div className="guide-content">

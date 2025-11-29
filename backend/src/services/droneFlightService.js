@@ -258,8 +258,15 @@ export async function getFlightById(flightId) {
       [flightId]
     );
 
+    const flight = flightResult.rows[0];
+    
+    // Convert log_hash buffer to hex string if needed
+    if (flight.log_hash && Buffer.isBuffer(flight.log_hash)) {
+      flight.log_hash = '0x' + flight.log_hash.toString('hex');
+    }
+    
     return {
-      ...flightResult.rows[0],
+      ...flight,
       samples: samplesResult.rows
     };
   } finally {

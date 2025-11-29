@@ -162,6 +162,11 @@ router.get('/drone-flights/:flightId', async (req, res) => {
       return res.status(404).json({ error: 'Flight not found' });
     }
     
+    // Convert log_hash buffer to hex string if needed
+    if (flight.log_hash && Buffer.isBuffer(flight.log_hash)) {
+      flight.log_hash = '0x' + flight.log_hash.toString('hex');
+    }
+    
     res.json(flight);
   } catch (error) {
     console.error('Error fetching flight:', error);
