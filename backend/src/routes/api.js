@@ -10,6 +10,12 @@ import {
 } from '../services/droneFlightService.js';
 import { registerDevice, getDevice, getAllDevices, setDeviceStatus } from '../services/deviceService.js';
 import { processDeviceLog, processCommandLog, verifyLog } from '../services/logTokenService.js';
+import {
+  retryPendingReadings,
+  retryPendingFlights,
+  simulateAndTokenizeReading,
+  simulateAndTokenizeFlight
+} from '../services/retryTokenizationService.js';
 
 const router = express.Router();
 
