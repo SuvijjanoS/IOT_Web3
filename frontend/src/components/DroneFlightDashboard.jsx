@@ -183,7 +183,7 @@ function DroneFlightDashboard() {
                   </h4>
                   <span 
                     className={`status-badge ${flight.tokenization_status?.toLowerCase()}`}
-                    title={flight.tokenization_status === 'PENDING' ? 'Flight log recorded but not yet tokenized on blockchain. Will be recorded once blockchain contracts are deployed.' : 'Flight log tokenized on blockchain'}
+                    title={flight.tokenization_status === 'PENDING' ? 'Flight log recorded but not yet tokenized on blockchain. Contracts are deployed - tokenization will happen automatically on next processing.' : flight.tokenization_status === 'ON_CHAIN' ? 'Flight log tokenized on blockchain' : 'Status: ' + (flight.tokenization_status || 'PENDING')}
                   >
                     {flight.tokenization_status || 'PENDING'}
                   </span>
