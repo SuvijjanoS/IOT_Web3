@@ -199,21 +199,26 @@ export async function simulateAndTokenizeReading() {
     const readingId = await processSensorReading(topic, testReading);
 
     // Get datapoints that were created
-    const datapointsQuery = `
-      SELECT parameter_name, COUNT(*) as count, COUNT(token_id) as tokenized_count
-      FROM sensor_datapoints
-      WHERE reading_id = $1
-      GROUP BY parameter_name
-    `;
-    const datapointsResult = await client.query(datapointsQuery, [readingId]);
+    const client = await pool.connect();
+    try {
+      const datapointsQuery = `
+        SELECT parameter_name, COUNT(*) as count, COUNT(token_id) as tokenized_count
+        FROM sensor_datapoints
+        WHERE reading_id = $1
+        GROUP BY parameter_name
+      `;
+      const datapointsResult = await client.query(datapointsQuery, [readingId]);
 
-    return {
-      success: true,
-      readingId,
-      datapoints: datapointsResult.rows,
-      reading: testReading,
-      message: 'Reading processed with per-datapoint tokenization'
-    };
+      return {
+        success: true,
+        readingId,
+        datapoints: datapointsResult.rows,
+        reading: testReading,
+        message: 'Reading processed with per-datapoint tokenization'
+      };
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Failed to simulate and tokenize reading:', error);
     return { success: false, error: error.message };
