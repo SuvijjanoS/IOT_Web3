@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import './APIIntegrationGuide.css';
 
 function APIIntegrationGuide() {
+  // Get base URL for API endpoints
+  const apiBaseUrl = window.location.origin;
+  
   return (
     <div className="api-integration-guide">
       <div className="guide-header">
