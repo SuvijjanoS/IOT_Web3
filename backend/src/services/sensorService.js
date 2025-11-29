@@ -52,13 +52,24 @@ export async function processSensorReading(topic, data) {
     
     const readingId = result.rows[0].id;
     
-    // Record on blockchain (async, don't block on this)
+    // Tokenize on blockchain using LogToken contract (async, don't block on this)
     try {
       const timestampUnix = Math.floor(ts.getTime() / 1000);
-      const blockchainResult = await recordReadingOnChain(
-        sensorId,
-        timestampUnix,
-        dataHash
+      const logHashBytes32 = dataHash; // Already in 0x format from hashData
+      
+      // Use command center wallet as owner (sensors may not be registered as devices)
+      const commandCenterWallet = process.env.COMMAND_CENTER_WALLET || '0x23e224b79344d96fc00Ce7BdE1D5552d720a027b';
+      
+      // Use zero address as deviceId for unregistered sensors
+      const deviceIdHex = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      
+      const blockchainResult = await mintLogToken(
+        commandCenterWallet,  // Token owner
+        deviceIdHex,           // Device ID (zero for unregistered sensors)
+        logHashBytes32,        // Log hash
+        'DEVICE_LOG',          // Log type
+        timestampUnix,         // Timestamp
+        ''                     // URI (empty for now)
       );
       
       // Update database with tx hash
@@ -67,9 +78,9 @@ export async function processSensorReading(topic, data) {
         [blockchainResult.txHash, blockchainResult.blockNumber, readingId]
       );
       
-      console.log(`Recorded reading ${readingId} on-chain: ${blockchainResult.txHash}`);
+      console.log(`✅ Reading ${readingId} tokenized: Token ID ${blockchainResult.tokenId}, TX ${blockchainResult.txHash}`);
     } catch (blockchainError) {
-      console.error('Failed to record on blockchain (continuing anyway):', blockchainError.message);
+      console.error('Failed to tokenize on blockchain (continuing anyway):', blockchainError.message);
     }
     
     return readingId;
