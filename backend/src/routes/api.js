@@ -326,5 +326,96 @@ router.post('/verify-log', async (req, res) => {
   }
 });
 
+// ===== RETRY TOKENIZATION API =====
+import {
+  retryPendingReadings,
+  retryPendingFlights,
+  simulateAndTokenizeReading,
+  simulateAndTokenizeFlight
+} from '../services/retryTokenizationService.js';
+
+// Retry tokenization for pending readings
+router.post('/retry-tokenization/readings', async (req, res) => {
+  try {
+    const limit = parseInt(req.body.limit) || 50;
+    const results = await retryPendingReadings(limit);
+    res.json({
+      success: true,
+      ...results
+    });
+  } catch (error) {
+    console.error('Error retrying tokenization for readings:', error);
+    res.status(500).json({ error: 'Failed to retry tokenization', message: error.message });
+  }
+});
+
+// Retry tokenization for pending flights
+router.post('/retry-tokenization/flights', async (req, res) => {
+  try {
+    const limit = parseInt(req.body.limit) || 50;
+    const results = await retryPendingFlights(limit);
+    res.json({
+      success: true,
+      ...results
+    });
+  } catch (error) {
+    console.error('Error retrying tokenization for flights:', error);
+    res.status(500).json({ error: 'Failed to retry tokenization', message: error.message });
+  }
+});
+
+// Retry all pending tokenizations
+router.post('/retry-tokenization/all', async (req, res) => {
+  try {
+    const limit = parseInt(req.body.limit) || 50;
+    const [readingsResults, flightsResults] = await Promise.all([
+      retryPendingReadings(limit),
+      retryPendingFlights(limit)
+    ]);
+    
+    res.json({
+      success: true,
+      readings: readingsResults,
+      flights: flightsResults,
+      total: {
+        processed: readingsResults.processed + flightsResults.processed,
+        succeeded: readingsResults.succeeded + flightsResults.succeeded,
+        failed: readingsResults.failed + flightsResults.failed
+      }
+    });
+  } catch (error) {
+    console.error('Error retrying tokenization:', error);
+    res.status(500).json({ error: 'Failed to retry tokenization', message: error.message });
+  }
+});
+
+// Simulate and tokenize a test reading
+router.post('/simulate/reading', async (req, res) => {
+  try {
+    const result = await simulateAndTokenizeReading();
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('Error simulating reading:', error);
+    res.status(500).json({ error: 'Failed to simulate reading', message: error.message });
+  }
+});
+
+// Simulate and tokenize a test flight
+router.post('/simulate/flight', async (req, res) => {
+  try {
+    const result = await simulateAndTokenizeFlight();
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('Error simulating flight:', error);
+    res.status(500).json({ error: 'Failed to simulate flight', message: error.message });
+  }
+});
+
 export default router;
 
