@@ -104,26 +104,39 @@ function generateMavic3EnterpriseFlight(locationName, location, flightNumber) {
       const radiusKm = 0.5 + cruiseProgress * 0.3; // Expand radius over time (0.5-0.8 km)
       const angle = cruiseTime * 0.05; // Slow rotation
       
+      // Calculate position based on target speed
+      const prevSample = samples[samples.length - 1];
+      const timeDiff = sampleRateMs / 1000; // seconds
+      const distanceToTravel = targetSpeed * timeDiff; // meters per sample
+      
       // Convert km to degrees (approximate: 1 degree lat ≈ 111 km)
       const radiusDeg = radiusKm / 111.0;
-      currentLat = homeLat + radiusDeg * Math.cos(angle) + (Math.random() - 0.5) * 0.0001;
-      currentLon = homeLon + radiusDeg * Math.sin(angle) / Math.cos(homeLat * Math.PI / 180) + (Math.random() - 0.5) * 0.0001;
+      const targetLat = homeLat + radiusDeg * Math.cos(angle);
+      const targetLon = homeLon + radiusDeg * Math.sin(angle) / Math.cos(homeLat * Math.PI / 180);
       
-      // Calculate velocity based on movement
-      const prevSample = samples[samples.length - 1];
       if (prevSample) {
-        const latDiff = currentLat - prevSample.lat;
-        const lonDiff = currentLon - prevSample.lon;
-        const distDeg = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
-        const distM = distDeg * 111000; // Convert to meters
-        const timeDiff = sampleRateMs / 1000;
-        const speed = distM / timeDiff;
+        // Calculate direction to target
+        const latDiffDeg = targetLat - prevSample.lat;
+        const lonDiffDeg = targetLon - prevSample.lon;
+        const distDeg = Math.sqrt(latDiffDeg * latDiffDeg + lonDiffDeg * lonDiffDeg);
         
-        // Adjust to maintain ~10 m/s
-        const speedFactor = targetSpeed / Math.max(speed, 0.1);
-        currentLat = prevSample.lat + latDiff * speedFactor;
-        currentLon = prevSample.lon + lonDiff * speedFactor;
+        if (distDeg > 0) {
+          // Move towards target at target speed
+          const moveRatio = (distanceToTravel / 111000) / distDeg; // Convert meters to degrees
+          currentLat = prevSample.lat + latDiffDeg * Math.min(moveRatio, 1);
+          currentLon = prevSample.lon + lonDiffDeg * Math.min(moveRatio, 1);
+        } else {
+          currentLat = targetLat;
+          currentLon = targetLon;
+        }
+      } else {
+        currentLat = targetLat;
+        currentLon = targetLon;
       }
+      
+      // Add small random variation
+      currentLat += (Math.random() - 0.5) * 0.00005;
+      currentLon += (Math.random() - 0.5) * 0.00005;
       
       // Yaw follows direction of travel
       if (samples.length > 0) {
@@ -146,19 +159,43 @@ function generateMavic3EnterpriseFlight(locationName, location, flightNumber) {
       currentYaw = 0;
     }
     
-    // Calculate velocities
+    // Calculate velocities - ensure realistic speeds
     let vx = 0, vy = 0, vz = 0, hSpeed = 0;
     if (samples.length > 0) {
       const prev = samples[samples.length - 1];
-      const timeDiff = sampleRateMs / 1000;
-      const latDiff = (currentLat - prev.lat) * 111000; // meters
-      const lonDiff = (currentLon - prev.lon) * 111000 * Math.cos(homeLat * Math.PI / 180);
-      const altDiff = (currentHeightAgl - prev.height_agl_m) * 1000; // mm
+      const timeDiff = sampleRateMs / 1000; // seconds
       
-      vx = (lonDiff / timeDiff) / 1000; // m/s (east)
-      vy = (latDiff / timeDiff) / 1000; // m/s (north)
-      vz = -(altDiff / timeDiff) / 1000; // m/s (down is negative)
+      // Calculate distance differences in meters
+      const latDiffM = (currentLat - prev.lat) * 111000; // meters (1 degree lat ≈ 111 km)
+      const lonDiffM = (currentLon - prev.lon) * 111000 * Math.cos(homeLat * Math.PI / 180); // meters
+      const altDiffM = currentHeightAgl - prev.height_agl_m; // meters
+      
+      // Calculate velocities in m/s
+      vx = lonDiffM / timeDiff; // m/s (east)
+      vy = latDiffM / timeDiff; // m/s (north)
+      vz = -altDiffM / timeDiff; // m/s (down is negative)
       hSpeed = Math.sqrt(vx * vx + vy * vy);
+      
+      // Ensure realistic speed during cruise phase
+      if (tSeconds >= cruiseStart && tSeconds < landingStart) {
+        // During cruise, maintain target speed with variation
+        if (hSpeed < 5.0) {
+          // If calculated speed is too low, use target speed with direction
+          const direction = Math.atan2(vy || 0, vx || 0);
+          hSpeed = targetSpeed * (0.85 + Math.random() * 0.3); // 8.5-11.5 m/s
+          vx = hSpeed * Math.cos(direction);
+          vy = hSpeed * Math.sin(direction);
+        }
+      } else if (tSeconds < takeoffDuration) {
+        // During takeoff, minimal horizontal movement
+        hSpeed = Math.min(hSpeed, 2.0);
+      } else if (tSeconds >= landingStart) {
+        // During landing, slow down
+        hSpeed = Math.min(hSpeed, 5.0);
+      }
+    } else {
+      // First sample - no movement yet
+      hSpeed = 0;
     }
     
     // Battery drain (realistic for Mavic 3 Enterprise)

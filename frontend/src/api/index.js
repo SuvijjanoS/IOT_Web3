@@ -26,5 +26,10 @@ export const getAllDrones = () => api.get('/drones');
 export const getFlightsByDroneId = (droneId, limit = 50) =>
   api.get(`/drones/${droneId}/flights`, { params: { limit } });
 
+// Device Management APIs
+export const getAllDevices = () => api.get('/devices');
+export const getDevice = (deviceId) => api.get(`/devices/${deviceId}`);
+export const registerDevice = (deviceData) => api.post('/devices', deviceData);
+
 export default api;
 

@@ -6,6 +6,7 @@ import ControlDashboard from './components/ControlDashboard';
 import Web3Process from './components/Web3Process';
 import DroneFlightDashboard from './components/DroneFlightDashboard';
 import APIIntegrationGuide from './components/APIIntegrationGuide';
+import BlockchainInfo from './components/BlockchainInfo';
 import './App.css';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
               <Link to="/drones" className="nav-link">Drone Flights</Link>
               <Link to="/web3" className="nav-link">Web3 Process</Link>
               <Link to="/control" className="nav-link">Control Panel</Link>
+              <Link to="/blockchain" className="nav-link">Blockchain Info</Link>
               <Link to="/api-guide" className="nav-link">API Guide</Link>
             </div>
           </div>
@@ -35,6 +37,7 @@ function App() {
             <Route path="/drones" element={<DroneFlightDashboard />} />
             <Route path="/web3" element={<Web3Process />} />
             <Route path="/control" element={<ControlDashboard />} />
+            <Route path="/blockchain" element={<BlockchainInfo />} />
             <Route path="/api-guide" element={<APIIntegrationGuide />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
