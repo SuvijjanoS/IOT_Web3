@@ -9,7 +9,6 @@
     "simulate": "node index.js"
   },
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.13.2"
   }
 }
-
