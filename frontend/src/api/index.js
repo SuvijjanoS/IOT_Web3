@@ -12,6 +12,10 @@ const api = axios.create({
 export const getSensors = () => api.get('/sensors');
 export const getReadings = (sensorId, limit = 100, offset = 0) =>
   api.get(`/readings/${sensorId}`, { params: { limit, offset } });
+export const getDatapoints = (sensorId, parameterName, limit = 1000, offset = 0) =>
+  api.get(`/datapoints/${sensorId}/${parameterName}`, { params: { limit, offset } });
+export const getAllDatapoints = (sensorId, limit = 1000, offset = 0) =>
+  api.get(`/datapoints/${sensorId}`, { params: { limit, offset } });
 export const sendControlCommand = (sensorId, relayId, state, durationSec) =>
   api.post('/control', { sensor_id: sensorId, relay_id: relayId, state, duration_sec: durationSec });
 export const getControlHistory = (sensorId, limit = 50) =>

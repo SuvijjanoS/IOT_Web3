@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
+import { Icon } from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { getDroneFlights, getAllDrones, getFlightById, getFlightsByDroneId } from '../api';
 import BlockchainDetailsModal from './BlockchainDetailsModal';
 import './DroneFlightDashboard.css';

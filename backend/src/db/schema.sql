@@ -179,3 +179,26 @@ CREATE INDEX IF NOT EXISTS idx_device_logs_log_id ON device_logs(log_id);
 CREATE INDEX IF NOT EXISTS idx_device_logs_device_id ON device_logs(device_id);
 CREATE INDEX IF NOT EXISTS idx_device_logs_log_hash ON device_logs(log_hash);
 
+-- Sensor Datapoints Table
+-- Stores individual parameter measurements with separate tokenization
+CREATE TABLE IF NOT EXISTS sensor_datapoints (
+  id SERIAL PRIMARY KEY,
+  reading_id INTEGER REFERENCES water_readings(id) ON DELETE CASCADE,
+  sensor_id TEXT NOT NULL,
+  ts TIMESTAMPTZ NOT NULL,
+  parameter_name TEXT NOT NULL,        -- 'ph', 'temperature_c', 'turbidity_ntu', 'tds_mg_l', 'dissolved_oxygen_mg_l'
+  parameter_value NUMERIC NOT NULL,
+  datapoint_hash BYTEA NOT NULL,       -- hash(sensor_id + timestamp + parameter_name + parameter_value)
+  token_id BIGINT REFERENCES log_tokens(token_id),
+  tx_hash TEXT,
+  block_number BIGINT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for sensor_datapoints
+CREATE INDEX IF NOT EXISTS idx_sensor_datapoints_sensor_id ON sensor_datapoints(sensor_id);
+CREATE INDEX IF NOT EXISTS idx_sensor_datapoints_ts ON sensor_datapoints(ts);
+CREATE INDEX IF NOT EXISTS idx_sensor_datapoints_parameter ON sensor_datapoints(sensor_id, parameter_name, ts);
+CREATE INDEX IF NOT EXISTS idx_sensor_datapoints_hash ON sensor_datapoints(datapoint_hash);
+CREATE INDEX IF NOT EXISTS idx_sensor_datapoints_reading_id ON sensor_datapoints(reading_id);
+

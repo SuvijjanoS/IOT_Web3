@@ -1,5 +1,5 @@
 import express from 'express';
-import { processSensorReading, getReadings, getAllSensors } from '../services/sensorService.js';
+import { processSensorReading, getReadings, getAllSensors, getDatapoints, getAllDatapoints } from '../services/sensorService.js';
 import { sendControlCommand, getControlHistory } from '../services/controlService.js';
 import { 
   processDroneFlightLog, 
@@ -42,6 +42,36 @@ router.get('/readings/:sensorId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching readings:', error);
     res.status(500).json({ error: 'Failed to fetch readings' });
+  }
+});
+
+// Get datapoints for a sensor and parameter (for time-series)
+router.get('/datapoints/:sensorId/:parameterName', async (req, res) => {
+  try {
+    const { sensorId, parameterName } = req.params;
+    const limit = parseInt(req.query.limit) || 1000;
+    const offset = parseInt(req.query.offset) || 0;
+    
+    const datapoints = await getDatapoints(sensorId, parameterName, limit, offset);
+    res.json(datapoints);
+  } catch (error) {
+    console.error('Error fetching datapoints:', error);
+    res.status(500).json({ error: 'Failed to fetch datapoints' });
+  }
+});
+
+// Get all datapoints for a sensor
+router.get('/datapoints/:sensorId', async (req, res) => {
+  try {
+    const { sensorId } = req.params;
+    const limit = parseInt(req.query.limit) || 1000;
+    const offset = parseInt(req.query.offset) || 0;
+    
+    const datapoints = await getAllDatapoints(sensorId, limit, offset);
+    res.json(datapoints);
+  } catch (error) {
+    console.error('Error fetching datapoints:', error);
+    res.status(500).json({ error: 'Failed to fetch datapoints' });
   }
 });
 

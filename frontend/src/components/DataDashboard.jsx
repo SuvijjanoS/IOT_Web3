@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getSensors, getReadings } from '../api';
+import { getSensors, getDatapoints } from '../api';
 import './DataDashboard.css';
 
 const ETHERSCAN_BASE = 'https://sepolia.etherscan.io/tx/';
 
+const PARAMETERS = [
+  { key: 'ph', label: 'pH', unit: '', color: '#667eea' },
+  { key: 'temperature_c', label: 'Temperature', unit: '°C', color: '#f56565' },
+  { key: 'turbidity_ntu', label: 'Turbidity', unit: 'NTU', color: '#48bb78' },
+  { key: 'tds_mg_l', label: 'TDS', unit: 'mg/L', color: '#ed8936' },
+  { key: 'dissolved_oxygen_mg_l', label: 'Dissolved Oxygen', unit: 'mg/L', color: '#4299e1' }
+];
+
 function DataDashboard() {
   const [sensors, setSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState('');
-  const [readings, setReadings] = useState([]);
-  const [selectedReading, setSelectedReading] = useState(null);
+  const [datapoints, setDatapoints] = useState({});
+  const [selectedDatapoint, setSelectedDatapoint] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [parameter, setParameter] = useState('turbidity_ntu');
 
   useEffect(() => {
     loadSensors();
@@ -19,8 +26,8 @@ function DataDashboard() {
 
   useEffect(() => {
     if (selectedSensor) {
-      loadReadings();
-      const interval = setInterval(loadReadings, 10000); // Refresh every 10 seconds
+      loadAllDatapoints();
+      const interval = setInterval(loadAllDatapoints, 10000); // Refresh every 10 seconds
       return () => clearInterval(interval);
     }
   }, [selectedSensor]);
@@ -37,59 +44,61 @@ function DataDashboard() {
     }
   };
 
-  const loadReadings = async () => {
+  const loadAllDatapoints = async () => {
     if (!selectedSensor) return;
     setLoading(true);
     try {
-      const response = await getReadings(selectedSensor, 100);
-      setReadings(response.data.reverse()); // Reverse to show chronological order
+      const allDatapoints = {};
+      for (const param of PARAMETERS) {
+        try {
+          const response = await getDatapoints(selectedSensor, param.key, 1000);
+          allDatapoints[param.key] = response.data || [];
+        } catch (error) {
+          console.error(`Failed to load datapoints for ${param.key}:`, error);
+          allDatapoints[param.key] = [];
+        }
+      }
+      setDatapoints(allDatapoints);
     } catch (error) {
-      console.error('Failed to load readings:', error);
+      console.error('Failed to load datapoints:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const chartData = readings.map(reading => ({
-    timestamp: new Date(reading.ts).toLocaleTimeString(),
-    ts: reading.ts,
-    turbidity_ntu: reading.turbidity_ntu,
-    ph: reading.ph,
-    temperature_c: reading.temperature_c,
-    tds_mg_l: reading.tds_mg_l,
-    dissolved_oxygen_mg_l: reading.dissolved_oxygen_mg_l,
-    battery_pct: reading.battery_pct,
-    status: reading.status,
-    raw_json: reading.raw_json,
-    tx_hash: reading.tx_hash,
-    block_number: reading.block_number,
-    id: reading.id,
-    etherscanUrl: reading.tx_hash ? `${ETHERSCAN_BASE}${reading.tx_hash}` : null
-  }));
+  const getChartData = (paramKey) => {
+    const points = datapoints[paramKey] || [];
+    return points.map(dp => ({
+      timestamp: new Date(dp.ts).toLocaleString(),
+      ts: dp.ts,
+      value: parseFloat(dp.parameter_value),
+      token_id: dp.token_id,
+      tx_hash: dp.tx_hash,
+      block_number: dp.block_number,
+      id: dp.id,
+      parameter_name: dp.parameter_name,
+      etherscanUrl: dp.tx_hash ? `${ETHERSCAN_BASE}${dp.tx_hash}` : null
+    }));
+  };
 
-  const handlePointClick = (data) => {
+  const handlePointClick = (data, paramKey) => {
     if (data && data.activePayload && data.activePayload[0]) {
-      const reading = data.activePayload[0].payload;
-      setSelectedReading(reading);
+      const datapoint = data.activePayload[0].payload;
+      setSelectedDatapoint({ ...datapoint, parameter: paramKey });
     }
   };
 
-  const getParameterLabel = (param) => {
-    const labels = {
-      turbidity_ntu: 'Turbidity (NTU)',
-      ph: 'pH',
-      temperature_c: 'Temperature (°C)',
-      tds_mg_l: 'TDS (mg/L)',
-      dissolved_oxygen_mg_l: 'Dissolved Oxygen (mg/L)',
-      battery_pct: 'Battery (%)'
-    };
-    return labels[param] || param;
+  const getParameterInfo = (paramKey) => {
+    return PARAMETERS.find(p => p.key === paramKey) || { key: paramKey, label: paramKey, unit: '', color: '#667eea' };
   };
+
+  const hasData = Object.values(datapoints).some(arr => arr.length > 0);
 
   return (
     <div className="data-dashboard">
       <div className="dashboard-header">
         <h2>Water Quality Data Dashboard</h2>
+        <p className="subtitle">Time-series visualization of individual parameter measurements (each tokenized separately)</p>
         <div className="controls">
           <select
             value={selectedSensor}
@@ -102,18 +111,6 @@ function DataDashboard() {
                 {sensor.sensor_id} ({sensor.reading_count} readings)
               </option>
             ))}
-          </select>
-          <select
-            value={parameter}
-            onChange={(e) => setParameter(e.target.value)}
-            className="parameter-select"
-          >
-            <option value="turbidity_ntu">Turbidity (NTU)</option>
-            <option value="ph">pH</option>
-            <option value="temperature_c">Temperature (°C)</option>
-            <option value="tds_mg_l">TDS (mg/L)</option>
-            <option value="dissolved_oxygen_mg_l">Dissolved Oxygen (mg/L)</option>
-            <option value="battery_pct">Battery (%)</option>
           </select>
         </div>
       </div>
@@ -140,180 +137,124 @@ function DataDashboard() {
               </div>
             </>
           )}
-          <div className="sensor-info-item">
-            <span className="info-label">Current Parameter:</span>
-            <span className="info-value">{getParameterLabel(parameter)}</span>
-          </div>
         </div>
       )}
 
-      {loading && <div className="loading">Loading readings...</div>}
+      {loading && <div className="loading">Loading datapoints...</div>}
 
-      {chartData.length > 0 && (
-        <>
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart
-                data={chartData}
-                onClick={handlePointClick}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="timestamp" />
-                <YAxis label={{ value: getParameterLabel(parameter), angle: -90, position: 'insideLeft' }} />
-                <Tooltip 
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="custom-tooltip">
-                          <p>{`${getParameterLabel(parameter)}: ${data[parameter]}`}</p>
-                          <p>{`Time: ${data.timestamp}`}</p>
-                          {data.tx_hash && (
-                            <a
-                              href={data.etherscanUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="tooltip-blockchain-link"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              🔗 View on Etherscan
-                            </a>
-                          )}
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey={parameter}
-                  stroke="#667eea"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          
-          <div className="readings-list">
-            <h3>Recent Readings</h3>
-            <div className="readings-table-container">
-              <table className="readings-table">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>pH</th>
-                    <th>Temp (°C)</th>
-                    <th>Turbidity</th>
-                    <th>Status</th>
-                    <th>Blockchain</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {readings.slice(0, 10).map(reading => (
-                    <tr 
-                      key={reading.id}
-                      onClick={() => setSelectedReading(reading)}
-                      className="reading-row"
+      {hasData && (
+        <div className="charts-grid">
+          {PARAMETERS.map(param => {
+            const chartData = getChartData(param.key);
+            if (chartData.length === 0) return null;
+            
+            return (
+              <div key={param.key} className="chart-card">
+                <h3>{param.label} ({param.unit})</h3>
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart
+                      data={chartData}
+                      onClick={(data) => handlePointClick(data, param.key)}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                     >
-                      <td>{new Date(reading.ts).toLocaleString()}</td>
-                      <td>{reading.ph}</td>
-                      <td>{reading.temperature_c}</td>
-                      <td>{reading.turbidity_ntu} NTU</td>
-                      <td>
-                        <span className={`status-badge ${reading.status?.toLowerCase()}`}>
-                          {reading.status}
-                        </span>
-                      </td>
-                      <td>
-                        {reading.tx_hash ? (
-                          <a
-                            href={`${ETHERSCAN_BASE}${reading.tx_hash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="blockchain-badge"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            🔗 Block #{reading.block_number}
-                          </a>
-                        ) : (
-                          <span className="pending-badge">Pending</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="timestamp" 
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis label={{ value: `${param.label} (${param.unit})`, angle: -90, position: 'insideLeft' }} />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="custom-tooltip">
+                                <p><strong>{param.label}:</strong> {data.value} {param.unit}</p>
+                                <p><strong>Time:</strong> {data.timestamp}</p>
+                                {data.token_id && <p><strong>Token ID:</strong> {data.token_id}</p>}
+                                {data.tx_hash && (
+                                  <a
+                                    href={data.etherscanUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="tooltip-blockchain-link"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    🔗 View on Etherscan
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke={param.color}
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 6 }}
+                        name={param.label}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="chart-stats">
+                  <span>Data Points: {chartData.length}</span>
+                  <span>Tokenized: {chartData.filter(d => d.token_id).length}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      {chartData.length === 0 && !loading && selectedSensor && (
-        <div className="no-data">No readings available for this sensor</div>
+      {!hasData && !loading && selectedSensor && (
+        <div className="no-data">No datapoints available for this sensor. Data will appear here once sensor readings are submitted.</div>
       )}
 
-      {selectedReading && (
-        <div className="reading-detail-panel">
+      {selectedDatapoint && (
+        <div className="datapoint-detail-panel">
           <div className="panel-header">
-            <h3>Reading Details</h3>
-            <button onClick={() => setSelectedReading(null)} className="close-btn">×</button>
+            <h3>Datapoint Details</h3>
+            <button onClick={() => setSelectedDatapoint(null)} className="close-btn">×</button>
           </div>
           <div className="panel-content">
             <div className="detail-section">
-              <h4>Sensor Data</h4>
+              <h4>Measurement Data</h4>
               <div className="detail-grid">
                 <div className="detail-item">
                   <span className="label">Sensor ID:</span>
-                  <span className="value">{selectedReading.raw_json?.sensor_id || selectedSensor}</span>
+                  <span className="value">{selectedSensor}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">Parameter:</span>
+                  <span className="value">{getParameterInfo(selectedDatapoint.parameter).label}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">Value:</span>
+                  <span className="value">{selectedDatapoint.value} {getParameterInfo(selectedDatapoint.parameter).unit}</span>
                 </div>
                 <div className="detail-item">
                   <span className="label">Timestamp:</span>
-                  <span className="value">{new Date(selectedReading.ts).toLocaleString()}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">pH:</span>
-                  <span className="value">{selectedReading.ph}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Temperature:</span>
-                  <span className="value">{selectedReading.temperature_c} °C</span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Turbidity:</span>
-                  <span className="value">{selectedReading.turbidity_ntu} NTU</span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">TDS:</span>
-                  <span className="value">{selectedReading.tds_mg_l} mg/L</span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Dissolved Oxygen:</span>
-                  <span className="value">{selectedReading.dissolved_oxygen_mg_l} mg/L</span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Battery:</span>
-                  <span className="value">{selectedReading.battery_pct}%</span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Status:</span>
-                  <span className={`value status ${selectedReading.status?.toLowerCase()}`}>
-                    {selectedReading.status}
-                  </span>
+                  <span className="value">{selectedDatapoint.timestamp}</span>
                 </div>
               </div>
             </div>
 
             <div className="detail-section">
               <h4>Blockchain Verification</h4>
-              {selectedReading.tx_hash ? (
+              {selectedDatapoint.tx_hash ? (
                 <div className="blockchain-link">
                   <a
-                    href={`${ETHERSCAN_BASE}${selectedReading.tx_hash}`}
+                    href={selectedDatapoint.etherscanUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="etherscan-link"
@@ -322,39 +263,39 @@ function DataDashboard() {
                   </a>
                   <div className="blockchain-info">
                     <div className="tx-hash">
-                      <span className="label">Transaction Hash:</span>
-                      <code>{selectedReading.tx_hash}</code>
+                      <span className="label">Token ID:</span>
+                      <code>{selectedDatapoint.token_id}</code>
                     </div>
-                    {selectedReading.block_number && (
+                    <div className="tx-hash">
+                      <span className="label">Transaction Hash:</span>
+                      <code>{selectedDatapoint.tx_hash}</code>
+                    </div>
+                    {selectedDatapoint.block_number && (
                       <div className="block-info">
                         <span className="label">Block Number:</span>
                         <a
-                          href={`https://sepolia.etherscan.io/block/${selectedReading.block_number}`}
+                          href={`https://sepolia.etherscan.io/block/${selectedDatapoint.block_number}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="block-link"
                         >
-                          #{selectedReading.block_number}
+                          #{selectedDatapoint.block_number}
                         </a>
                       </div>
                     )}
                   </div>
+                  <p className="verification-note">
+                    ✅ This datapoint is tokenized on-chain. The hash is: <code>hash(sensor_id + timestamp + parameter_name + parameter_value)</code>
+                  </p>
                 </div>
               ) : (
                 <div className="blockchain-pending">
-                  <p>⏳ <strong>Status: Pending</strong></p>
+                  <p>⏳ <strong>Status: Pending Tokenization</strong></p>
                   <p className="pending-explanation">
-                    This reading is stored in the database. Blockchain contracts are deployed and tokenization will happen automatically on next processing.
+                    This datapoint is stored in the database but not yet tokenized on blockchain. Tokenization will happen automatically.
                   </p>
                 </div>
               )}
-            </div>
-
-            <div className="detail-section">
-              <h4>Raw JSON</h4>
-              <pre className="json-preview">
-                {JSON.stringify(selectedReading.raw_json || {}, null, 2)}
-              </pre>
             </div>
           </div>
         </div>
@@ -364,4 +305,3 @@ function DataDashboard() {
 }
 
 export default DataDashboard;
-
