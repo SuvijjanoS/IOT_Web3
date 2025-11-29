@@ -351,51 +351,78 @@ function DroneFlightDashboard() {
                 </div>
 
                 <div className="details-section">
-                  <h4>Flight Path (GPS Trajectory)</h4>
-                  <p className="section-description">Flight trajectory showing GPS coordinates over time - multiple waypoints forming the flight path</p>
-                  <div className="chart-container">
-                    <ResponsiveContainer width="100%" height={500}>
-                      <ScatterChart>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          type="number" 
-                          dataKey="lon" 
-                          name="Longitude"
-                          label={{ value: 'Longitude', position: 'insideBottom', offset: -5 }}
-                          domain={['dataMin - 0.001', 'dataMax + 0.001']}
+                  <h4>Flight Path (GPS Trajectory on Map)</h4>
+                  <p className="section-description">Flight trajectory plotted on map showing GPS coordinates - multiple waypoints forming the flight path</p>
+                  {chartData.length > 0 && chartData[0].lat && chartData[0].lon ? (
+                    <div className="map-container">
+                      <MapContainer
+                        center={[chartData[Math.floor(chartData.length / 2)].lat, chartData[Math.floor(chartData.length / 2)].lon]}
+                        zoom={15}
+                        style={{ height: '500px', width: '100%', borderRadius: '8px' }}
+                        scrollWheelZoom={true}
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
-                        <YAxis 
-                          type="number" 
-                          dataKey="lat" 
-                          name="Latitude"
-                          label={{ value: 'Latitude', angle: -90, position: 'insideLeft' }}
-                          domain={['dataMin - 0.001', 'dataMax + 0.001']}
+                        <Polyline
+                          positions={chartData
+                            .filter(point => point.lat && point.lon)
+                            .map(point => [point.lat, point.lon])}
+                          color="#667eea"
+                          weight={3}
+                          opacity={0.8}
                         />
-                        <ZAxis type="number" dataKey="height_agl_m" name="Height (m)" range={[50, 400]} />
-                        <Tooltip 
-                          cursor={{ strokeDasharray: '3 3' }}
-                          formatter={(value, name) => {
-                            if (name === 'Height (m)') return `${parseFloat(value).toFixed(1)}m`;
-                            if (name === 'Longitude') return parseFloat(value).toFixed(7);
-                            if (name === 'Latitude') return parseFloat(value).toFixed(7);
-                            return value;
-                          }}
-                        />
-                        <Legend />
-                        <Scatter 
-                          name="Flight Trajectory" 
-                          data={chartData} 
-                          fill="#667eea"
-                          fillOpacity={0.7}
-                          line={{ stroke: '#667eea', strokeWidth: 2 }}
-                        />
-                      </ScatterChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="trajectory-info">
-                    <p><strong>Total GPS Points:</strong> {chartData.length}</p>
-                    <p><strong>Flight Pattern:</strong> Circular patrol pattern around location</p>
-                  </div>
+                        {chartData[0] && (
+                          <Marker
+                            position={[chartData[0].lat, chartData[0].lon]}
+                            icon={new Icon({
+                              iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                              shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                              iconSize: [25, 41],
+                              iconAnchor: [12, 41],
+                              popupAnchor: [1, -34],
+                              shadowSize: [41, 41]
+                            })}
+                          >
+                            <Popup>
+                              <strong>Start Point</strong><br />
+                              Lat: {chartData[0].lat.toFixed(6)}<br />
+                              Lon: {chartData[0].lon.toFixed(6)}<br />
+                              Height: {chartData[0].height_agl_m?.toFixed(1)}m
+                            </Popup>
+                          </Marker>
+                        )}
+                        {chartData[chartData.length - 1] && (
+                          <Marker
+                            position={[chartData[chartData.length - 1].lat, chartData[chartData.length - 1].lon]}
+                            icon={new Icon({
+                              iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                              shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                              iconSize: [25, 41],
+                              iconAnchor: [12, 41],
+                              popupAnchor: [1, -34],
+                              shadowSize: [41, 41]
+                            })}
+                          >
+                            <Popup>
+                              <strong>End Point</strong><br />
+                              Lat: {chartData[chartData.length - 1].lat.toFixed(6)}<br />
+                              Lon: {chartData[chartData.length - 1].lon.toFixed(6)}<br />
+                              Height: {chartData[chartData.length - 1].height_agl_m?.toFixed(1)}m
+                            </Popup>
+                          </Marker>
+                        )}
+                      </MapContainer>
+                      <div className="trajectory-info">
+                        <p><strong>Total GPS Points:</strong> {chartData.filter(p => p.lat && p.lon).length}</p>
+                        <p><strong>Flight Pattern:</strong> Trajectory shown on map with start (red) and end (green) markers</p>
+                        <p><strong>Map Center:</strong> {chartData[Math.floor(chartData.length / 2)].lat.toFixed(6)}, {chartData[Math.floor(chartData.length / 2)].lon.toFixed(6)}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="no-map-data">No GPS coordinates available for this flight</div>
+                  )}
                 </div>
               </>
             )}
