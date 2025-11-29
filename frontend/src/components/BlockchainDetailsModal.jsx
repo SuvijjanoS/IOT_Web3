@@ -17,32 +17,38 @@ function BlockchainDetailsModal({ flightId, droneId, onClose }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Get device info
-      if (droneId) {
-        try {
-          const deviceResponse = await getDevice(droneId);
-          setDevice(deviceResponse.data);
-          
-          // Get wallet balance
-          if (deviceResponse.data?.deviceWallet) {
-            try {
-              const { ethers } = await import('ethers');
-              const provider = new ethers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/pYxkSp7pwP6Z9fSgHgs8g');
-              const balance = await provider.getBalance(deviceResponse.data.deviceWallet);
-              setWalletBalance(ethers.formatEther(balance));
-            } catch (e) {
-              console.error('Failed to get balance:', e);
-            }
-          }
-        } catch (e) {
-          console.error('Device not found:', e);
-        }
-      }
-
-      // Get flight info
+      // Get flight info first
       if (flightId) {
         const flightResponse = await getFlightById(flightId);
         setFlight(flightResponse.data);
+        
+        // Try to find device by drone_id (drones may not be registered as devices yet)
+        // For now, we'll show flight info even if device is not found
+        if (droneId) {
+          try {
+            // Try to get device - but drone_id might not be a deviceId
+            // In production, you'd have a mapping table
+            const deviceResponse = await getDevice(droneId);
+            if (deviceResponse.data) {
+              setDevice(deviceResponse.data);
+              
+              // Get wallet balance
+              if (deviceResponse.data.deviceWallet) {
+                try {
+                  const { ethers } = await import('ethers');
+                  const provider = new ethers.JsonRpcProvider('https://eth-sepolia.g.alchemy.com/v2/pYxkSp7pwP6Z9fSgHgs8g');
+                  const balance = await provider.getBalance(deviceResponse.data.deviceWallet);
+                  setWalletBalance(ethers.formatEther(balance));
+                } catch (e) {
+                  console.error('Failed to get balance:', e);
+                }
+              }
+            }
+          } catch (e) {
+            // Device not found - this is OK, drones may not be registered as devices
+            console.log('Device not registered for this drone:', droneId);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -213,6 +219,13 @@ function BlockchainDetailsModal({ flightId, droneId, onClose }) {
                     >
                       🔗 View Master Wallet on Etherscan
                     </a>
+                    {!device && (
+                      <div style={{ marginTop: '1rem', padding: '1rem', background: '#fff3cd', borderRadius: '6px' }}>
+                        <p style={{ margin: 0, color: '#856404' }}>
+                          <strong>Note:</strong> This drone needs to be registered as a device in the DeviceRegistry contract before tokenization can occur.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : flight?.tokenization_status === 'ON_CHAIN' ? (
                   <div className="confirmed-info">
