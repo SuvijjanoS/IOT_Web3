@@ -327,13 +327,6 @@ router.post('/verify-log', async (req, res) => {
 });
 
 // ===== RETRY TOKENIZATION API =====
-import {
-  retryPendingReadings,
-  retryPendingFlights,
-  simulateAndTokenizeReading,
-  simulateAndTokenizeFlight
-} from '../services/retryTokenizationService.js';
-
 // Retry tokenization for pending readings
 router.post('/retry-tokenization/readings', async (req, res) => {
   try {
