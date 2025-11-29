@@ -217,6 +217,63 @@
   font-style: italic;
 }
 
+.blockchain-status-confirmed,
+.blockchain-status-pending {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.status-icon {
+  font-size: 1rem;
+}
+
+.pending-text {
+  color: #856404;
+  font-size: 0.9rem;
+}
+
+.refresh-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.refresh-btn:hover {
+  background: #5568d3;
+}
+
+.tx-link,
+.block-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #667eea;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.tx-link:hover,
+.block-link:hover {
+  background: #667eea;
+  color: white;
+  text-decoration: none;
+}
+
+.block-link {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+}
+
 @media (max-width: 968px) {
   .control-panel {
     grid-template-columns: 1fr;
