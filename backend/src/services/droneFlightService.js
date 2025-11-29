@@ -1,5 +1,5 @@
 import pool from '../db/index.js';
-import { hashData, recordFlightOnChain } from '../blockchain/index.js';
+import { mintLogToken } from '../blockchain/index.js';
 import crypto from 'crypto';
 
 /**
@@ -177,18 +177,24 @@ export async function processDroneFlightLog(flightLog) {
 
     await client.query('COMMIT');
 
-    // Try to record on-chain (async, don't fail if it fails)
+    // Try to tokenize on-chain using LogToken contract (async, don't fail if it fails)
     try {
       const startedAtUnix = Math.floor(startedAt.getTime() / 1000);
       const logHashBytes32 = '0x' + logHashHex;
-      const result = await recordFlightOnChain(
-        flightLog.flight_id,
-        flightLog.drone_id,
-        flightLog.drone_model,
-        startedAtUnix,
-        logHashBytes32,
-        samples.length,
-        Math.floor(durationS)
+      
+      // Use command center wallet as owner (drones may not be registered as devices yet)
+      const commandCenterWallet = process.env.COMMAND_CENTER_WALLET || '0x23e224b79344d96fc00Ce7BdE1D5552d720a027b';
+      
+      // Use zero address as deviceId for unregistered drones
+      const deviceIdHex = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      
+      const result = await mintLogToken(
+        commandCenterWallet,  // Token owner
+        deviceIdHex,           // Device ID (zero for unregistered drones)
+        logHashBytes32,        // Log hash
+        'DEVICE_LOG',          // Log type
+        startedAtUnix,         // Timestamp
+        ''                     // URI (empty for now)
       );
 
       // Update flight with on-chain info
@@ -196,9 +202,11 @@ export async function processDroneFlightLog(flightLog) {
         'UPDATE drone_flights SET tokenization_status = $1, tx_hash = $2, block_number = $3 WHERE flight_id = $4',
         ['ON_CHAIN', result.txHash, result.blockNumber, flightLog.flight_id]
       );
+      
+      console.log(`✅ Flight ${flightLog.flight_id} tokenized: Token ID ${result.tokenId}, TX ${result.txHash}`);
     } catch (error) {
-      console.error('Failed to record flight on-chain:', error);
-      // Don't fail the whole operation
+      console.error('Failed to tokenize flight on-chain:', error.message);
+      // Don't fail the whole operation - log is stored in DB
     }
 
     return {

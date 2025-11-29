@@ -1,5 +1,5 @@
 import pool from '../db/index.js';
-import { hashData, recordReadingOnChain } from '../blockchain/index.js';
+import { hashData, mintLogToken } from '../blockchain/index.js';
 
 /**
  * Process and store a sensor reading
