@@ -1,7 +1,12 @@
 import pool from '../db/index.js';
 import { mintLogToken } from '../blockchain/index.js';
-import { hashData } from '../blockchain/index.js';
+import { ethers } from 'ethers';
 import crypto from 'crypto';
+
+// Helper function to hash data (same as in blockchain/index.js)
+function hashData(data) {
+  return ethers.keccak256(ethers.toUtf8Bytes(data));
+}
 
 /**
  * Retry tokenization for pending water quality readings
