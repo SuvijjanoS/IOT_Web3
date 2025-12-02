@@ -88,7 +88,7 @@ function Web3Process() {
                     </div>
                     <div className="info-row">
                       <span className="label">Tokens:</span>
-                      <span className="token-count">Querying...</span>
+                      <span className="token-count">View on Etherscan</span>
                     </div>
                   </div>
                   <button

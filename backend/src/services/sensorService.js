@@ -4,18 +4,19 @@ import { findDeviceWalletForSensorOrDrone } from './deviceService.js';
 import { ethers } from 'ethers';
 
 /**
- * Hash a single datapoint: hash(sensor_id + timestamp + parameter_name + parameter_value)
+ * Hash entire reading: hash(sensor_id + timestamp + all parameter values)
  */
-function hashDatapoint(sensorId, timestamp, parameterName, parameterValue) {
+function hashReading(sensorId, timestamp, parameters) {
   const timestampStr = timestamp instanceof Date ? timestamp.toISOString() : timestamp;
-  const valueStr = typeof parameterValue === 'number' ? parameterValue.toString() : String(parameterValue);
-  const combined = `${sensorId}|${timestampStr}|${parameterName}|${valueStr}`;
+  // Sort parameters for consistent hashing
+  const sortedParams = Object.keys(parameters).sort().map(key => `${key}:${parameters[key]}`).join('|');
+  const combined = `${sensorId}|${timestampStr}|${sortedParams}`;
   return ethers.keccak256(ethers.toUtf8Bytes(combined));
 }
 
 /**
  * Process and store a sensor reading
- * Now tokenizes each parameter separately
+ * Tokenizes the entire reading (sensor_id + timestamp + all parameters)
  */
 export async function processSensorReading(topic, data) {
   const client = await pool.connect();
@@ -32,20 +33,23 @@ export async function processSensorReading(topic, data) {
     // Extract parameters
     const params = data.parameters || {};
     
-    // Create raw JSON string for hashing (keep for backward compatibility)
+    // Hash entire reading: sensor_id + timestamp + all parameter values
+    const readingHash = hashReading(sensorId, ts, params);
+    const readingHashBytes32 = readingHash; // Already in 0x format
+    const readingHashHex = '\\x' + Buffer.from(readingHash.slice(2), 'hex').toString('hex');
+    
+    // Also keep raw JSON hash for backward compatibility
     const rawJsonString = JSON.stringify(data);
     const dataHash = hashData(rawJsonString);
-    
-    // Convert hash to hex string for storage
     const dataHashHex = '\\x' + Buffer.from(dataHash.slice(2), 'hex').toString('hex');
     
     // Insert into database
     const insertQuery = `
       INSERT INTO water_readings (
         sensor_id, ts, ph, temperature_c, turbidity_ntu, tds_mg_l,
-        dissolved_oxygen_mg_l, battery_pct, status, location_lat, location_lng,
+        dissolved_oxygen_mg_l, flow_rate_lpm, battery_pct, status, location_lat, location_lng,
         raw_json, data_hash
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING id
     `;
     
@@ -57,6 +61,7 @@ export async function processSensorReading(topic, data) {
       params.turbidity_ntu || null,
       params.tds_mg_l || null,
       params.dissolved_oxygen_mg_l || null,
+      params.flow_rate_lpm || null,
       data.battery_pct || null,
       data.status || 'OK',
       data.location?.lat || null,
@@ -66,68 +71,32 @@ export async function processSensorReading(topic, data) {
     ]);
     
     const readingId = result.rows[0].id;
-    
-    // Tokenize each parameter separately (async, don't block on this)
-    const parameterNames = ['ph', 'temperature_c', 'turbidity_ntu', 'tds_mg_l', 'dissolved_oxygen_mg_l'];
     const timestampUnix = Math.floor(ts.getTime() / 1000);
     
     // Find device wallet for this sensor (or use command center wallet as fallback)
     const { deviceWallet, deviceId } = await findDeviceWalletForSensorOrDrone(sensorId, null, null);
     
-    for (const paramName of parameterNames) {
-      const paramValue = params[paramName];
-      if (paramValue === null || paramValue === undefined) continue;
+    // Tokenize the entire reading (not per-parameter)
+    try {
+      const blockchainResult = await mintLogToken(
+        deviceWallet,
+        deviceId,
+        readingHashBytes32,
+        'DEVICE_LOG',
+        timestampUnix,
+        `sensor:${sensorId}|reading:${readingId}`
+      );
       
-      try {
-        // Hash the individual datapoint
-        const datapointHash = hashDatapoint(sensorId, ts, paramName, paramValue);
-        const datapointHashBytes32 = datapointHash; // Already in 0x format
-        const datapointHashHex = '\\x' + Buffer.from(datapointHash.slice(2), 'hex').toString('hex');
-        
-        // Insert datapoint record
-        const datapointInsertQuery = `
-          INSERT INTO sensor_datapoints (
-            reading_id, sensor_id, ts, parameter_name, parameter_value, datapoint_hash
-          ) VALUES ($1, $2, $3, $4, $5, $6)
-          RETURNING id
-        `;
-        
-        const datapointResult = await client.query(datapointInsertQuery, [
-          readingId,
-          sensorId,
-          ts,
-          paramName,
-          paramValue,
-          datapointHashHex
-        ]);
-        
-        const datapointId = datapointResult.rows[0].id;
-        
-        // Tokenize the datapoint on blockchain
-        try {
-          const blockchainResult = await mintLogToken(
-            deviceWallet,
-            deviceId,
-            datapointHashBytes32,
-            'DEVICE_LOG',
-            timestampUnix,
-            `sensor:${sensorId}|param:${paramName}|value:${paramValue}`
-          );
-          
-          // Update datapoint with token info
-          await client.query(
-            'UPDATE sensor_datapoints SET token_id = $1, tx_hash = $2, block_number = $3 WHERE id = $4',
-            [blockchainResult.tokenId, blockchainResult.txHash, blockchainResult.blockNumber, datapointId]
-          );
-          
-          console.log(`✅ Datapoint ${datapointId} (${paramName}=${paramValue}) tokenized: Token ID ${blockchainResult.tokenId}, TX ${blockchainResult.txHash}`);
-        } catch (blockchainError) {
-          console.error(`Failed to tokenize datapoint ${paramName} on blockchain:`, blockchainError.message);
-        }
-      } catch (error) {
-        console.error(`Failed to process datapoint ${paramName}:`, error.message);
-        // Continue with other parameters
-      }
+      // Update reading with token info
+      await client.query(
+        'UPDATE water_readings SET token_id = $1, tx_hash = $2, block_number = $3 WHERE id = $4',
+        [blockchainResult.tokenId, blockchainResult.txHash, blockchainResult.blockNumber, readingId]
+      );
+      
+      console.log(`✅ Reading ${readingId} tokenized: Token ID ${blockchainResult.tokenId}, TX ${blockchainResult.txHash}`);
+    } catch (blockchainError) {
+      console.error(`Failed to tokenize reading on blockchain:`, blockchainError.message);
+      // Don't fail the whole operation if tokenization fails
     }
     
     await client.query('COMMIT');
@@ -148,8 +117,8 @@ export async function getReadings(sensorId, limit = 100, offset = 0) {
   const query = `
     SELECT 
       id, sensor_id, ts, ph, temperature_c, turbidity_ntu, tds_mg_l,
-      dissolved_oxygen_mg_l, battery_pct, status, location_lat, location_lng,
-      raw_json, tx_hash, block_number
+      dissolved_oxygen_mg_l, flow_rate_lpm, battery_pct, status, location_lat, location_lng,
+      raw_json, tx_hash, block_number, token_id
     FROM water_readings
     WHERE sensor_id = $1
     ORDER BY ts DESC
@@ -175,7 +144,11 @@ export async function getDatapoints(sensorId, parameterName, limit = 1000, offse
   `;
   
   const result = await pool.query(query, [sensorId, parameterName, limit, offset]);
-  return result.rows;
+  // Convert Buffer objects to hex strings for JSON serialization
+  return result.rows.map(row => ({
+    ...row,
+    datapoint_hash: row.datapoint_hash ? '0x' + row.datapoint_hash.toString('hex') : null
+  }));
 }
 
 /**
@@ -193,23 +166,64 @@ export async function getAllDatapoints(sensorId, limit = 1000, offset = 0) {
   `;
   
   const result = await pool.query(query, [sensorId, limit, offset]);
-  return result.rows;
+  // Convert Buffer objects to hex strings for JSON serialization
+  return result.rows.map(row => ({
+    ...row,
+    datapoint_hash: row.datapoint_hash ? '0x' + row.datapoint_hash.toString('hex') : null
+  }));
 }
 
 /**
- * Get all sensors
+ * Get all sensors (including registered devices without readings)
  */
 export async function getAllSensors() {
-  const query = `
-    SELECT DISTINCT sensor_id, 
-           MAX(ts) as last_reading,
-           COUNT(*) as reading_count
-    FROM water_readings
-    GROUP BY sensor_id
-    ORDER BY last_reading DESC
+  // Get sensors from water_readings
+  const readingsQuery = `
+    SELECT DISTINCT wr.sensor_id, 
+           MAX(wr.ts) as last_reading,
+           COUNT(wr.id) as reading_count,
+           COUNT(wr.token_id) as tokenized_readings
+    FROM water_readings wr
+    GROUP BY wr.sensor_id
   `;
   
-  const result = await pool.query(query);
-  return result.rows;
+  const readingsResult = await pool.query(readingsQuery);
+  const sensorsWithReadings = readingsResult.rows;
+  
+  // Get all registered devices that might not have readings yet
+  const devicesQuery = `
+    SELECT serial_number as sensor_id,
+           registered_at as last_reading,
+           0 as reading_count,
+           0 as tokenized_readings
+    FROM devices
+    WHERE (model LIKE '%Sensor%' OR model LIKE '%WW%' OR manufacturer LIKE '%IoT%')
+      AND serial_number NOT IN (SELECT DISTINCT sensor_id FROM water_readings)
+  `;
+  
+  const devicesResult = await pool.query(devicesQuery);
+  const registeredDevices = devicesResult.rows;
+  
+  // Merge and deduplicate (prefer sensors with readings)
+  const sensorMap = new Map();
+  
+  // Add sensors with readings first
+  sensorsWithReadings.forEach(sensor => {
+    sensorMap.set(sensor.sensor_id, sensor);
+  });
+  
+  // Add registered devices that don't have readings
+  registeredDevices.forEach(device => {
+    if (!sensorMap.has(device.sensor_id)) {
+      sensorMap.set(device.sensor_id, device);
+    }
+  });
+  
+  // Convert to array and sort by last_reading
+  return Array.from(sensorMap.values()).sort((a, b) => {
+    const dateA = a.last_reading ? new Date(a.last_reading) : new Date(0);
+    const dateB = b.last_reading ? new Date(b.last_reading) : new Date(0);
+    return dateB - dateA;
+  });
 }
 

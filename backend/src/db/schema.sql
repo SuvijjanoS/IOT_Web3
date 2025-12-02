@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS water_readings (
   turbidity_ntu NUMERIC,
   tds_mg_l NUMERIC,
   dissolved_oxygen_mg_l NUMERIC,
+  flow_rate_lpm NUMERIC,
   battery_pct INT,
   status TEXT,
   location_lat NUMERIC,
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS water_readings (
   data_hash BYTEA NOT NULL,
   tx_hash TEXT,
   block_number BIGINT,
+  token_id BIGINT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -232,44 +232,189 @@ export async function simulateAndTokenizeFlight() {
   const client = await pool.connect();
   
   try {
-    // Create a test flight log
+    // Create a realistic test flight log (Mavic 3 Enterprise)
     const now = Date.now();
     const flightId = `TEST_FLIGHT_${now}`;
     const droneId = 'MAVIC3E_TEST_001';
-    const numSamples = 10; // Small test flight
+    
+    // Flight parameters - realistic Mavic 3 Enterprise
+    // Duration: 30 minutes ± 7 minutes (23-37 minutes)
+    const baseDurationSeconds = 30 * 60;
+    const durationVariation = (Math.random() - 0.5) * 14 * 60; // ±7 minutes
+    const durationSeconds = Math.floor(baseDurationSeconds + durationVariation);
+    const sampleRateMs = 2000; // 0.5 Hz sampling
+    const numSamples = Math.floor((durationSeconds * 1000) / sampleRateMs);
+    
+    // Speed: 8-11 m/s (realistic cruise speed)
+    const targetSpeedMin = 8.0;
+    const targetSpeedMax = 11.0;
+    const targetSpeed = targetSpeedMin + Math.random() * (targetSpeedMax - targetSpeedMin);
+    
+    // Altitude: 80-120m AGL (±20m from 100m target)
+    const targetAltitudeMin = 80.0;
+    const targetAltitudeMax = 120.0;
+    
+    // Choose a random city center location
+    const locations = [
+      { lat: 13.7649, lon: 100.5383, alt_asl: 12.0 }, // Bangkok Victory Monument
+      { lat: 7.0083, lon: 100.4767, alt_asl: 10.0 },   // Hatyai City
+      { lat: 19.9100, lon: 99.8317, alt_asl: 390.0 }   // Chiangrai City
+    ];
+    const location = locations[Math.floor(Math.random() * locations.length)];
     
     const samples = [];
-    const baseLat = 13.7563;
-    const baseLon = 100.5018;
+    let currentLat = location.lat;
+    let currentLon = location.lon;
+    let currentHeightAgl = 0.1;
+    let currentAltAsl = location.alt_asl + 0.1;
+    let currentYaw = 0;
+    let battery = 100;
+    let batteryVoltage = 17.6; // Mavic 3 Enterprise 4S battery
+    
+    // Flight phases
+    const takeoffDuration = 15; // seconds
+    const cruiseStart = takeoffDuration;
+    const landingStart = durationSeconds - 30;
     
     for (let i = 0; i < numSamples; i++) {
-      const t_ms = i * 2000; // 2 second intervals
+      const tMs = i * sampleRateMs;
+      const tSeconds = tMs / 1000;
+      
+      // Phase 1: Takeoff (0-15 seconds)
+      if (tSeconds < takeoffDuration) {
+        const takeoffProgress = tSeconds / takeoffDuration;
+        currentHeightAgl = 0.1 + (targetAltitudeMin * 0.8) * takeoffProgress;
+        currentAltAsl = location.alt_asl + currentHeightAgl;
+        currentLat = location.lat + (Math.random() - 0.5) * 0.00001;
+        currentLon = location.lon + (Math.random() - 0.5) * 0.00001;
+        currentYaw = 0 + (Math.random() - 0.5) * 5;
+      }
+      // Phase 2: Cruise flight
+      else if (tSeconds < landingStart) {
+        const cruiseTime = tSeconds - cruiseStart;
+        const cruiseProgress = cruiseTime / (landingStart - cruiseStart);
+        
+        // Maintain altitude 80-120m AGL
+        const baseAltitude = targetAltitudeMin + (targetAltitudeMax - targetAltitudeMin) * 0.5;
+        currentHeightAgl = baseAltitude + Math.sin(cruiseTime * 0.1) * 5 + (Math.random() - 0.5) * 3;
+        currentHeightAgl = Math.max(targetAltitudeMin, Math.min(targetAltitudeMax, currentHeightAgl));
+        currentAltAsl = location.alt_asl + currentHeightAgl;
+        
+        // Patrol pattern around location
+        const radiusKm = 0.3 + cruiseProgress * 0.5; // 0.3-0.8 km
+        const angle = cruiseTime * 0.04;
+        const radiusDeg = radiusKm / 111.0;
+        const latOffset = radiusDeg * Math.cos(angle);
+        const lonOffset = radiusDeg * Math.sin(angle) / Math.cos(location.lat * Math.PI / 180);
+        currentLat = location.lat + latOffset + (Math.random() - 0.5) * 0.00005;
+        currentLon = location.lon + lonOffset + (Math.random() - 0.5) * 0.00005;
+        
+        // Maintain target speed (with Mercator projection correction for longitude)
+        if (samples.length > 0) {
+          const prev = samples[samples.length - 1];
+          const latDiff = currentLat - prev.lat;
+          const lonDiff = currentLon - prev.lon;
+          // Apply Mercator projection correction: longitude degrees compress at higher latitudes
+          const latDiffM = latDiff * 111000; // 1 degree latitude ≈ 111km
+          const lonDiffM = lonDiff * 111000 * Math.cos(location.lat * Math.PI / 180); // Longitude compression
+          const distM = Math.sqrt(latDiffM * latDiffM + lonDiffM * lonDiffM);
+          const timeDiff = sampleRateMs / 1000;
+          const actualSpeed = distM / timeDiff;
+          if (actualSpeed > 0.1) {
+            const speedFactor = targetSpeed / actualSpeed;
+            currentLat = prev.lat + latDiff * speedFactor;
+            currentLon = prev.lon + lonDiff * speedFactor;
+          }
+        }
+        
+        // Yaw follows direction
+        if (samples.length > 0) {
+          const prevLat = samples[samples.length - 1].lat;
+          const prevLon = samples[samples.length - 1].lon;
+          const latDiff = currentLat - prevLat;
+          const lonDiff = currentLon - prevLon;
+          currentYaw = (Math.atan2(lonDiff, latDiff) * 180 / Math.PI + 360) % 360;
+        }
+      }
+      // Phase 3: Landing
+      else {
+        const landingProgress = (tSeconds - landingStart) / (durationSeconds - landingStart);
+        currentHeightAgl = targetAltitudeMin * (1 - landingProgress) + 0.1;
+        currentAltAsl = location.alt_asl + currentHeightAgl;
+        const returnProgress = landingProgress;
+        currentLat = location.lat + (currentLat - location.lat) * (1 - returnProgress);
+        currentLon = location.lon + (currentLon - location.lon) * (1 - returnProgress);
+        currentYaw = 0;
+      }
+      
+      // Calculate velocities
+      let vx = 0, vy = 0, vz = 0, hSpeed = 0;
+      if (samples.length > 0) {
+        const prev = samples[samples.length - 1];
+        const timeDiff = sampleRateMs / 1000;
+        const latDiff = (currentLat - prev.lat) * 111000;
+        const lonDiff = (currentLon - prev.lon) * 111000 * Math.cos(location.lat * Math.PI / 180);
+        const altDiff = (currentHeightAgl - prev.height_agl_m);
+        
+        vx = lonDiff / timeDiff;
+        vy = latDiff / timeDiff;
+        vz = -altDiff / timeDiff;
+        hSpeed = Math.sqrt(vx * vx + vy * vy);
+      }
+      
+      // Battery drain
+      if (tSeconds > 0) {
+        battery = Math.max(20, 100 - (tSeconds / 60) * 1.2);
+        batteryVoltage = 17.6 - ((100 - battery) / 100) * 1.5;
+      }
+      
+      // Attitude
+      const pitch = Math.sin(tSeconds * 0.2) * 5 + (Math.random() - 0.5) * 2;
+      const roll = Math.cos(tSeconds * 0.15) * 3 + (Math.random() - 0.5) * 1.5;
+      
       samples.push({
-        t_ms,
-        lat: baseLat + (Math.random() - 0.5) * 0.001,
-        lon: baseLon + (Math.random() - 0.5) * 0.001,
-        height_agl_m: 10 + i * 2,
-        alt_asl_m: 20 + i * 2,
-        pitch_deg: (Math.random() - 0.5) * 10,
-        roll_deg: (Math.random() - 0.5) * 5,
-        yaw_deg: i * 10,
-        vx_ms: Math.random() * 2,
-        vy_ms: Math.random() * 2,
-        vz_ms: (Math.random() - 0.5) * 1,
-        h_speed_ms: Math.random() * 5 + 2,
-        gps_level: 4,
-        gps_sats: 12,
-        flight_mode: 'P',
-        battery_pct: 90 - i,
-        battery_voltage_v: 15.0 - i * 0.1
+        t_ms: tMs,
+        lat: parseFloat(currentLat.toFixed(7)),
+        lon: parseFloat(currentLon.toFixed(7)),
+        height_agl_m: parseFloat(currentHeightAgl.toFixed(2)),
+        alt_asl_m: parseFloat(currentAltAsl.toFixed(2)),
+        pitch_deg: parseFloat(pitch.toFixed(3)),
+        roll_deg: parseFloat(roll.toFixed(3)),
+        yaw_deg: parseFloat(currentYaw.toFixed(3)),
+        vx_ms: parseFloat(vx.toFixed(3)),
+        vy_ms: parseFloat(vy.toFixed(3)),
+        vz_ms: parseFloat(vz.toFixed(3)),
+        h_speed_ms: parseFloat(hSpeed.toFixed(3)),
+        gps_level: 4 + Math.floor(Math.random() * 2),
+        gps_sats: 18 + Math.floor(Math.random() * 5),
+        flight_mode: 'P-GPS',
+        rc_aileron_pct: parseFloat((roll * 10).toFixed(1)),
+        rc_elevator_pct: parseFloat((pitch * 10).toFixed(1)),
+        rc_throttle_pct: parseFloat((50 + pitch * 2).toFixed(1)),
+        rc_rudder_pct: parseFloat(((currentYaw - (samples.length > 0 ? samples[samples.length - 1].yaw_deg : 0)) * 2).toFixed(1)),
+        battery_pct: Math.floor(battery),
+        battery_voltage_v: parseFloat(batteryVoltage.toFixed(2)),
+        warnings: battery < 30 ? ['LOW_BATTERY'] : [],
+        event_flags: {
+          photo_taken: Math.random() > 0.95,
+          video_rec: true,
+          rth_active: tSeconds >= landingStart,
+          obstacle_avoidance: true
+        }
       });
     }
 
     const flightLog = {
       flight_id: flightId,
       drone_id: droneId,
-      drone_model: 'DJI Mavic 3',
-      started_at_utc: new Date(now - numSamples * 2000).toISOString(),
+      drone_model: 'DJI Mavic 3 Enterprise',
+      started_at_utc: new Date(now - durationSeconds * 1000).toISOString(),
+      home_point: {
+        lat: location.lat,
+        lon: location.lon,
+        alt_asl_m: location.alt_asl
+      },
+      samples_hz: 0.5,
       samples
     };
 

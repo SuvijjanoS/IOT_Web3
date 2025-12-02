@@ -53,13 +53,22 @@ function generateMavic3EnterpriseFlight(locationName, location, flightNumber) {
   const homeLon = locationData.lon;
   const homeAltAsl = locationData.alt_asl;
   
-  // Flight parameters
-  const durationSeconds = 30 * 60; // 30 minutes
-  const sampleRateMs = 500; // 2 Hz sampling
+  // Flight parameters - realistic Mavic 3 Enterprise
+  // Duration: 30 minutes ± 7 minutes (23-37 minutes)
+  const baseDurationSeconds = 30 * 60;
+  const durationVariation = (Math.random() - 0.5) * 14 * 60; // ±7 minutes
+  const durationSeconds = Math.floor(baseDurationSeconds + durationVariation);
+  const sampleRateMs = 2000; // 0.5 Hz sampling (reduced for realistic data size)
   const numSamples = Math.floor((durationSeconds * 1000) / sampleRateMs);
-  const targetSpeed = 10.0; // m/s
+  
+  // Speed: 8-11 m/s (realistic cruise speed for Mavic 3)
+  const targetSpeedMin = 8.0;
+  const targetSpeedMax = 11.0;
+  const targetSpeed = targetSpeedMin + Math.random() * (targetSpeedMax - targetSpeedMin);
+  
+  // Altitude: 80-120m AGL (±20m from 100m target)
   const targetAltitudeMin = 80.0; // meters AGL
-  const targetAltitudeMax = 100.0; // meters AGL
+  const targetAltitudeMax = 120.0; // meters AGL
   
   const samples = [];
   let currentLat = homeLat;
@@ -94,35 +103,46 @@ function generateMavic3EnterpriseFlight(locationName, location, flightNumber) {
       const cruiseTime = tSeconds - cruiseStart;
       const cruiseProgress = cruiseTime / (landingStart - cruiseStart);
       
-      // Maintain altitude between 80-100m AGL with slight variations
-      const baseAltitude = targetAltitudeMin + (targetAltitudeMax - targetAltitudeMin) * 0.5;
+      // Maintain altitude between 80-120m AGL with realistic variations
+      const baseAltitude = targetAltitudeMin + (targetAltitudeMax - targetAltitudeMin) * 0.5; // ~100m
       currentHeightAgl = baseAltitude + Math.sin(cruiseTime * 0.1) * 5 + (Math.random() - 0.5) * 3;
       currentHeightAgl = Math.max(targetAltitudeMin, Math.min(targetAltitudeMax, currentHeightAgl));
       currentAltAsl = homeAltAsl + currentHeightAgl;
       
-      // Create a circular/patrol pattern around the location
-      const radiusKm = 0.5 + cruiseProgress * 0.3; // Expand radius over time (0.5-0.8 km)
-      const angle = cruiseTime * 0.05; // Slow rotation
+      // Create a realistic patrol pattern around the city center
+      // Expand radius gradually: 0.3-0.8 km from center
+      const radiusKm = 0.3 + cruiseProgress * 0.5;
+      const angle = cruiseTime * 0.04; // Slow rotation (realistic patrol speed)
       
       // Convert km to degrees (approximate: 1 degree lat ≈ 111 km)
       const radiusDeg = radiusKm / 111.0;
-      currentLat = homeLat + radiusDeg * Math.cos(angle) + (Math.random() - 0.5) * 0.0001;
-      currentLon = homeLon + radiusDeg * Math.sin(angle) / Math.cos(homeLat * Math.PI / 180) + (Math.random() - 0.5) * 0.0001;
+      const latOffset = radiusDeg * Math.cos(angle);
+      const lonOffset = radiusDeg * Math.sin(angle) / Math.cos(homeLat * Math.PI / 180);
       
-      // Calculate velocity based on movement
+      // Add small GPS noise (realistic GPS accuracy)
+      const gpsNoise = (Math.random() - 0.5) * 0.00005; // ~5m accuracy
+      currentLat = homeLat + latOffset + gpsNoise;
+      currentLon = homeLon + lonOffset + gpsNoise;
+      
+      // Calculate velocity based on movement and maintain target speed (8-11 m/s)
+      // Apply Mercator projection correction for accurate distance calculation
       const prevSample = samples[samples.length - 1];
       if (prevSample) {
         const latDiff = currentLat - prevSample.lat;
         const lonDiff = currentLon - prevSample.lon;
-        const distDeg = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
-        const distM = distDeg * 111000; // Convert to meters
+        // Apply Mercator projection correction: longitude degrees compress at higher latitudes
+        const latDiffM = latDiff * 111000; // 1 degree latitude ≈ 111km
+        const lonDiffM = lonDiff * 111000 * Math.cos(homeLat * Math.PI / 180); // Longitude compression
+        const distM = Math.sqrt(latDiffM * latDiffM + lonDiffM * lonDiffM);
         const timeDiff = sampleRateMs / 1000;
-        const speed = distM / timeDiff;
+        const actualSpeed = distM / timeDiff;
         
-        // Adjust to maintain ~10 m/s
-        const speedFactor = targetSpeed / Math.max(speed, 0.1);
-        currentLat = prevSample.lat + latDiff * speedFactor;
-        currentLon = prevSample.lon + lonDiff * speedFactor;
+        // Adjust to maintain target speed (8-11 m/s)
+        if (actualSpeed > 0.1) {
+          const speedFactor = targetSpeed / actualSpeed;
+          currentLat = prevSample.lat + latDiff * speedFactor;
+          currentLon = prevSample.lon + lonDiff * speedFactor;
+        }
       }
       
       // Yaw follows direction of travel
@@ -146,19 +166,29 @@ function generateMavic3EnterpriseFlight(locationName, location, flightNumber) {
       currentYaw = 0;
     }
     
-    // Calculate velocities
+    // Calculate velocities (realistic Mavic 3 Enterprise)
     let vx = 0, vy = 0, vz = 0, hSpeed = 0;
     if (samples.length > 0) {
       const prev = samples[samples.length - 1];
       const timeDiff = sampleRateMs / 1000;
       const latDiff = (currentLat - prev.lat) * 111000; // meters
       const lonDiff = (currentLon - prev.lon) * 111000 * Math.cos(homeLat * Math.PI / 180);
-      const altDiff = (currentHeightAgl - prev.height_agl_m) * 1000; // mm
+      const altDiff = (currentHeightAgl - prev.height_agl_m); // meters
       
-      vx = (lonDiff / timeDiff) / 1000; // m/s (east)
-      vy = (latDiff / timeDiff) / 1000; // m/s (north)
-      vz = -(altDiff / timeDiff) / 1000; // m/s (down is negative)
+      vx = lonDiff / timeDiff; // m/s (east)
+      vy = latDiff / timeDiff; // m/s (north)
+      vz = -altDiff / timeDiff; // m/s (down is negative, up is positive)
       hSpeed = Math.sqrt(vx * vx + vy * vy);
+      
+      // Ensure speed stays within realistic range (8-11 m/s during cruise)
+      if (tSeconds >= cruiseStart && tSeconds < landingStart && hSpeed > 0) {
+        if (hSpeed < targetSpeedMin || hSpeed > targetSpeedMax) {
+          const speedFactor = targetSpeed / hSpeed;
+          vx *= speedFactor;
+          vy *= speedFactor;
+          hSpeed = Math.sqrt(vx * vx + vy * vy);
+        }
+      }
     }
     
     // Battery drain (realistic for Mavic 3 Enterprise)
@@ -226,7 +256,7 @@ function generateMavic3EnterpriseFlight(locationName, location, flightNumber) {
       lon: homeLon,
       alt_asl_m: homeAltAsl
     },
-    samples_hz: 2,
+    samples_hz: 0.5, // 0.5 Hz (2 second intervals) for realistic data size
     samples: samples
   };
 }

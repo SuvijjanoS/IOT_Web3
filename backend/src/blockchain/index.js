@@ -128,7 +128,7 @@ export async function recordReadingOnChain(sensorId, timestamp, dataHash) {
     const tx = await waterQualityContract.recordReading(sensorId, timestamp, dataHash);
     const receipt = await tx.wait();
     return {
-      txHash: receipt.hash,
+      txHash: tx.hash, // Use tx.hash instead of receipt.hash (ethers.js v6)
       blockNumber: receipt.blockNumber
     };
   } catch (error) {
@@ -149,7 +149,7 @@ export async function recordCommandOnChain(sensorId, relayId, command, timestamp
     const tx = await waterQualityContract.recordCommand(sensorId, relayId, command, timestamp, commandHash);
     const receipt = await tx.wait();
     return {
-      txHash: receipt.hash,
+      txHash: tx.hash, // Use tx.hash instead of receipt.hash (ethers.js v6)
       blockNumber: receipt.blockNumber
     };
   } catch (error) {
@@ -178,7 +178,7 @@ export async function recordFlightOnChain(flightId, droneId, droneModel, started
     );
     const receipt = await tx.wait();
     return {
-      txHash: receipt.hash,
+      txHash: tx.hash, // Use tx.hash instead of receipt.hash (ethers.js v6)
       blockNumber: receipt.blockNumber
     };
   } catch (error) {
@@ -196,12 +196,13 @@ export async function registerDeviceOnChain(deviceIdHex, wallet, fingerprintHex)
   }
 
   try {
-    const deviceId = ethers.hexlify(deviceIdHex);
-    const fingerprint = ethers.hexlify(fingerprintHex);
+    // Ensure hex strings have "0x" prefix before hexlify
+    const deviceId = ethers.hexlify(deviceIdHex.startsWith('0x') ? deviceIdHex : '0x' + deviceIdHex);
+    const fingerprint = ethers.hexlify(fingerprintHex.startsWith('0x') ? fingerprintHex : '0x' + fingerprintHex);
     const tx = await deviceRegistryContract.registerDevice(deviceId, wallet, fingerprint);
     const receipt = await tx.wait();
     return {
-      txHash: receipt.hash,
+      txHash: tx.hash, // Use tx.hash instead of receipt.hash (ethers.js v6)
       blockNumber: receipt.blockNumber
     };
   } catch (error) {
@@ -219,11 +220,12 @@ export async function setDeviceStatusOnChain(deviceIdHex, isActive) {
   }
 
   try {
-    const deviceId = ethers.hexlify(deviceIdHex);
+    // Ensure hex string has "0x" prefix before hexlify
+    const deviceId = ethers.hexlify(deviceIdHex.startsWith('0x') ? deviceIdHex : '0x' + deviceIdHex);
     const tx = await deviceRegistryContract.setDeviceStatus(deviceId, isActive);
     const receipt = await tx.wait();
     return {
-      txHash: receipt.hash,
+      txHash: tx.hash, // Use tx.hash instead of receipt.hash (ethers.js v6)
       blockNumber: receipt.blockNumber
     };
   } catch (error) {
@@ -241,7 +243,8 @@ export async function getDeviceFromChain(deviceIdHex) {
   }
 
   try {
-    const deviceId = ethers.hexlify(deviceIdHex);
+    // Ensure hex string has "0x" prefix before hexlify
+    const deviceId = ethers.hexlify(deviceIdHex.startsWith('0x') ? deviceIdHex : '0x' + deviceIdHex);
     const device = await deviceRegistryContract.getDevice(deviceId);
     return {
       wallet: device.wallet,
@@ -270,8 +273,9 @@ export async function mintLogToken(to, deviceIdHex, logHashHex, logType, loggedA
   }
 
   try {
-    const deviceId = ethers.hexlify(deviceIdHex);
-    const logHash = ethers.hexlify(logHashHex);
+    // Ensure hex strings have "0x" prefix before hexlify
+    const deviceId = ethers.hexlify(deviceIdHex.startsWith('0x') ? deviceIdHex : '0x' + deviceIdHex);
+    const logHash = ethers.hexlify(logHashHex.startsWith('0x') ? logHashHex : '0x' + logHashHex);
     
     // Convert logType string to enum (0 = DEVICE_LOG, 1 = COMMAND_LOG)
     const logTypeEnum = logType === 'COMMAND_LOG' ? 1 : 0;
@@ -304,7 +308,7 @@ export async function mintLogToken(to, deviceIdHex, logHashHex, logType, loggedA
     
     return {
       tokenId,
-      txHash: receipt.hash,
+      txHash: tx.hash, // Use tx.hash instead of receipt.hash (ethers.js v6)
       blockNumber: receipt.blockNumber
     };
   } catch (error) {
@@ -322,7 +326,8 @@ export async function findTokensByHash(logHashHex) {
   }
 
   try {
-    const logHash = ethers.hexlify(logHashHex);
+    // Ensure hex string has "0x" prefix before hexlify
+    const logHash = ethers.hexlify(logHashHex.startsWith('0x') ? logHashHex : '0x' + logHashHex);
     const tokenIds = await logTokenContract.findTokensByHash(logHash);
     return tokenIds.map(id => id.toString());
   } catch (error) {

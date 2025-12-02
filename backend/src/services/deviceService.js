@@ -72,17 +72,18 @@ export async function registerDevice(deviceData) {
       true
     ]);
     
-    // Register on-chain
-    try {
-      await registerDeviceOnChain(
-        deviceIdHex,
-        deviceWallet,
-        fingerprint.toString('hex')
-      );
-    } catch (blockchainError) {
-      console.error('Failed to register device on-chain:', blockchainError.message);
-      // Continue - device is still registered in DB
-    }
+    // Register on-chain (non-blocking - don't wait for completion)
+    // This ensures device registration completes quickly even if blockchain is slow
+    registerDeviceOnChain(
+      deviceIdHex,
+      deviceWallet,
+      fingerprint.toString('hex')
+    ).then(() => {
+      console.log(`✅ Device ${deviceIdHex} registered on-chain successfully`);
+    }).catch((blockchainError) => {
+      console.error('Failed to register device on-chain (will retry later):', blockchainError.message);
+      // Device is still registered in DB, can retry on-chain registration later
+    });
     
     await client.query('COMMIT');
     

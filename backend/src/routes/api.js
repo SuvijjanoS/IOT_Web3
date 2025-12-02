@@ -236,6 +236,9 @@ router.post('/devices', async (req, res) => {
       });
     }
     
+    console.log(`📱 Registering device: ${manufacturer} ${model} (${serial_number})`);
+    
+    // Register device (database registration only - blockchain happens async)
     const device = await registerDevice({
       manufacturer,
       model,
@@ -244,9 +247,10 @@ router.post('/devices', async (req, res) => {
       deviceWallet: device_wallet
     });
     
+    console.log(`✅ Device registered successfully: ${device.deviceId}`);
     res.status(201).json(device);
   } catch (error) {
-    console.error('Error registering device:', error);
+    console.error('❌ Error registering device:', error.message);
     res.status(500).json({ error: 'Failed to register device', message: error.message });
   }
 });

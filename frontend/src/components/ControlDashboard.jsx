@@ -11,6 +11,7 @@ function ControlDashboard() {
   const [state, setState] = useState('OFF');
   const [durationSec, setDurationSec] = useState(600);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
   const [commandHistory, setCommandHistory] = useState([]);
 
@@ -38,13 +39,16 @@ function ControlDashboard() {
     }
   };
 
-  const loadCommandHistory = async () => {
+  const loadCommandHistory = async (showRefreshing = false) => {
     if (!selectedSensor) return;
+    if (showRefreshing) setRefreshing(true);
     try {
       const response = await getControlHistory(selectedSensor, 20);
       setCommandHistory(response.data);
     } catch (error) {
       console.error('Failed to load command history:', error);
+    } finally {
+      if (showRefreshing) setRefreshing(false);
     }
   };
 
@@ -228,10 +232,14 @@ function ControlDashboard() {
                             <span className="pending-text">Processing...</span>
                             <button
                               className="refresh-btn"
-                              onClick={() => loadCommandHistory()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadCommandHistory(true);
+                              }}
+                              disabled={refreshing}
                               title="Refresh status"
                             >
-                              🔄 Refresh
+                              {refreshing ? '⏳ Refreshing...' : '🔄 Refresh'}
                             </button>
                           </div>
                         )}

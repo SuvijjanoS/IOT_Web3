@@ -9,26 +9,26 @@ import crypto from 'crypto';
 function canonicalizeSamples(samples) {
   return samples.map(sample => ({
     t_ms: sample.t_ms,
-    lat: Number(sample.lat.toFixed(7)),
-    lon: Number(sample.lon.toFixed(7)),
-    height_agl_m: Number(sample.height_agl_m.toFixed(2)),
-    alt_asl_m: sample.alt_asl_m ? Number(sample.alt_asl_m.toFixed(2)) : null,
-    pitch_deg: Number(sample.pitch_deg.toFixed(3)),
-    roll_deg: Number(sample.roll_deg.toFixed(3)),
-    yaw_deg: Number(sample.yaw_deg.toFixed(3)),
-    vx_ms: Number(sample.vx_ms.toFixed(3)),
-    vy_ms: Number(sample.vy_ms.toFixed(3)),
-    vz_ms: Number(sample.vz_ms.toFixed(3)),
-    h_speed_ms: Number(sample.h_speed_ms.toFixed(3)),
+    lat: sample.lat != null ? Number(sample.lat.toFixed(7)) : null,
+    lon: sample.lon != null ? Number(sample.lon.toFixed(7)) : null,
+    height_agl_m: sample.height_agl_m != null ? Number(sample.height_agl_m.toFixed(2)) : null,
+    alt_asl_m: sample.alt_asl_m != null ? Number(sample.alt_asl_m.toFixed(2)) : null,
+    pitch_deg: sample.pitch_deg != null ? Number(sample.pitch_deg.toFixed(3)) : null,
+    roll_deg: sample.roll_deg != null ? Number(sample.roll_deg.toFixed(3)) : null,
+    yaw_deg: sample.yaw_deg != null ? Number(sample.yaw_deg.toFixed(3)) : null,
+    vx_ms: sample.vx_ms != null ? Number(sample.vx_ms.toFixed(3)) : null,
+    vy_ms: sample.vy_ms != null ? Number(sample.vy_ms.toFixed(3)) : null,
+    vz_ms: sample.vz_ms != null ? Number(sample.vz_ms.toFixed(3)) : null,
+    h_speed_ms: sample.h_speed_ms != null ? Number(sample.h_speed_ms.toFixed(3)) : null,
     gps_level: sample.gps_level,
     gps_sats: sample.gps_sats,
     flight_mode: sample.flight_mode,
-    rc_aileron_pct: Number(sample.rc_aileron_pct.toFixed(1)),
-    rc_elevator_pct: Number(sample.rc_elevator_pct.toFixed(1)),
-    rc_throttle_pct: Number(sample.rc_throttle_pct.toFixed(1)),
-    rc_rudder_pct: Number(sample.rc_rudder_pct.toFixed(1)),
+    rc_aileron_pct: sample.rc_aileron_pct != null ? Number(sample.rc_aileron_pct.toFixed(1)) : null,
+    rc_elevator_pct: sample.rc_elevator_pct != null ? Number(sample.rc_elevator_pct.toFixed(1)) : null,
+    rc_throttle_pct: sample.rc_throttle_pct != null ? Number(sample.rc_throttle_pct.toFixed(1)) : null,
+    rc_rudder_pct: sample.rc_rudder_pct != null ? Number(sample.rc_rudder_pct.toFixed(1)) : null,
     battery_pct: sample.battery_pct,
-    battery_voltage_v: Number(sample.battery_voltage_v.toFixed(2)),
+    battery_voltage_v: sample.battery_voltage_v != null ? Number(sample.battery_voltage_v.toFixed(2)) : null,
     warnings: sample.warnings || [],
     event_flags: sample.event_flags || {}
   }));
@@ -52,9 +52,10 @@ export async function processDroneFlightLog(flightLog) {
   try {
     await client.query('BEGIN');
 
-    // Validate flight log
-    if (flightLog.drone_model !== 'DJI Mavic 3') {
-      throw new Error('Unsupported drone_model. Only DJI Mavic 3 is supported.');
+    // Validate flight log - accept both "DJI Mavic 3" and "DJI Mavic 3 Enterprise"
+    const supportedModels = ['DJI Mavic 3', 'DJI Mavic 3 Enterprise'];
+    if (!supportedModels.includes(flightLog.drone_model)) {
+      throw new Error(`Unsupported drone_model. Supported models: ${supportedModels.join(', ')}`);
     }
 
     if (!Array.isArray(flightLog.samples) || flightLog.samples.length === 0) {
@@ -110,7 +111,7 @@ export async function processDroneFlightLog(flightLog) {
       flightLog.home_point?.lat || null,
       flightLog.home_point?.lon || null,
       flightLog.home_point?.alt_asl_m || null,
-      flightLog.samples_hz || null,
+      flightLog.samples_hz ? Math.round(flightLog.samples_hz) : null, // Round to integer for INTEGER column
       samples.length,
       durationS,
       maxHeightAgl || 0,
