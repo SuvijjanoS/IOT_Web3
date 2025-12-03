@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -22,8 +22,8 @@ services:
     image: eclipse-mosquitto:2.0
     container_name: iot_web3_mqtt
     ports:
-      - "1883:1883"
-      - "9001:9001"
+      - "127.0.0.1:1883:1883"
+      - "127.0.0.1:9001:9001"
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
     # Health check removed - MQTT starts quickly and health check was causing issues
@@ -52,7 +52,7 @@ services:
       COMMAND_CENTER_WALLET: ${COMMAND_CENTER_WALLET}
       PRIVATE_KEY: ${PRIVATE_KEY}
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,7 +74,7 @@ services:
         VITE_API_URL: /api
     container_name: iot_web3_frontend
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     depends_on:
       backend:
         condition: service_healthy
