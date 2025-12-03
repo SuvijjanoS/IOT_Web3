@@ -1,7 +1,8 @@
 import axios from 'axios';
 import crypto from 'crypto';
 
-const API_URL = process.env.API_URL || 'http://localhost:3001/api/v1/drone-logs';
+const API_BASE = process.env.API_URL || 'http://localhost:8080/api';
+const API_URL = `${API_BASE}/v1/drone-logs`;
 
 // Realistic GPS coordinates for locations
 const LOCATIONS = {
