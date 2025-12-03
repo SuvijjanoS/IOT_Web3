@@ -1,16 +1,20 @@
 [Unit]
 Description=IOT Web3 System Startup Service
-After=docker.service network-online.target
+Description=Starts IOT Web3 Docker containers, configures Nginx, and ensures all services are running
+After=docker.service network-online.target nginx.service
 Requires=docker.service
-Wants=network-online.target
+Wants=network-online.target nginx.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/opt/IOT_Web3/scripts/startup-iot-web3.sh
+ExecStart=/root/IOT_Web3/scripts/startup-iot-web3.sh
 StandardOutput=journal
 StandardError=journal
-TimeoutStartSec=300
+TimeoutStartSec=600
+# Restart on failure (but only if service is enabled)
+Restart=on-failure
+RestartSec=30
 
 [Install]
 WantedBy=multi-user.target

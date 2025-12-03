@@ -150,21 +150,128 @@ verify_apis() {
     fi
 }
 
+# Function to ensure Nginx service is running
+ensure_nginx_service() {
+    log "Ensuring Nginx service is running..."
+    
+    # Check if nginx is installed as a system service
+    if command -v nginx > /dev/null 2>&1; then
+        # Enable nginx to start on boot if not already enabled
+        if ! systemctl is-enabled nginx > /dev/null 2>&1; then
+            log "Enabling Nginx to start on boot..."
+            systemctl enable nginx || log_warning "Failed to enable Nginx service"
+        fi
+        
+        # Start nginx if not running
+        if ! systemctl is-active --quiet nginx; then
+            log "Starting Nginx service..."
+            systemctl start nginx || {
+                log_error "Failed to start Nginx service"
+                return 1
+            }
+            sleep 2
+        fi
+        log_success "Nginx service is running"
+    else
+        log_warning "Nginx not found as system service, checking Docker container..."
+    fi
+    
+    # Check if nginx container exists (for other services)
+    if docker ps -a --format '{{.Names}}' | grep -q "^ade_dhammada-nginx-1$"; then
+        log "Found Nginx Docker container, ensuring it's running..."
+        docker start ade_dhammada-nginx-1 2>/dev/null || true
+        docker exec ade_dhammada-nginx-1 nginx -t > /dev/null 2>&1 && {
+            docker exec ade_dhammada-nginx-1 nginx -s reload
+            log_success "Nginx container reloaded successfully"
+        } || {
+            log_warning "Nginx container configuration test failed"
+        }
+    fi
+}
+
+# Function to configure Nginx for iot.namisense.com
+configure_nginx() {
+    log "Configuring Nginx for iot.namisense.com..."
+    
+    NGINX_CONFIG="/etc/nginx/sites-available/iot.namisense.com"
+    NGINX_ENABLED="/etc/nginx/sites-enabled/iot.namisense.com"
+    
+    # Check if configuration script exists
+    if [ -f "$PROJECT_DIR/scripts/setup-iot-namisense-nginx.sh" ]; then
+        log "Running Nginx configuration script..."
+        bash "$PROJECT_DIR/scripts/setup-iot-namisense-nginx.sh" >> "$LOG_FILE" 2>&1 || {
+            log_warning "Nginx configuration script had issues, but continuing..."
+        }
+    elif [ -f "$PROJECT_DIR/nginx-iot-namisense.conf" ]; then
+        log "Copying Nginx configuration from repository..."
+        mkdir -p /etc/nginx/sites-available
+        cp "$PROJECT_DIR/nginx-iot-namisense.conf" "$NGINX_CONFIG" || {
+            log_warning "Failed to copy Nginx config, but continuing..."
+            return 0
+        }
+        
+        # Enable the site
+        mkdir -p /etc/nginx/sites-enabled
+        rm -f "$NGINX_ENABLED"
+        ln -s "$NGINX_CONFIG" "$NGINX_ENABLED" || {
+            log_warning "Failed to enable Nginx site, but continuing..."
+        }
+        
+        # Test and reload nginx
+        if nginx -t > /dev/null 2>&1; then
+            systemctl reload nginx || systemctl restart nginx
+            log_success "Nginx configured for iot.namisense.com"
+        else
+            log_warning "Nginx configuration test failed"
+        fi
+    else
+        log_warning "Nginx configuration files not found, skipping configuration"
+    fi
+}
+
 # Function to restart nginx
 restart_nginx() {
-    log "Restarting nginx..."
+    log "Reloading Nginx configuration..."
     
-    # Check if nginx container exists
+    # Reload host nginx if it exists
+    if command -v nginx > /dev/null 2>&1 && systemctl is-active --quiet nginx; then
+        if nginx -t > /dev/null 2>&1; then
+            systemctl reload nginx || {
+                log_warning "Nginx reload failed, attempting restart..."
+                systemctl restart nginx
+            }
+            log_success "Nginx reloaded successfully"
+        else
+            log_error "Nginx configuration test failed"
+            return 1
+        fi
+    fi
+    
+    # Also handle Docker nginx container if it exists
     if docker ps -a --format '{{.Names}}' | grep -q "^ade_dhammada-nginx-1$"; then
         docker exec ade_dhammada-nginx-1 nginx -t > /dev/null 2>&1 && {
             docker exec ade_dhammada-nginx-1 nginx -s reload
-            log_success "Nginx reloaded successfully"
+            log_success "Nginx container reloaded successfully"
         } || {
-            log_error "Nginx configuration test failed"
-            return 1
+            log_warning "Nginx container configuration test failed"
         }
+    fi
+}
+
+# Function to verify data persistence
+verify_data_persistence() {
+    log "Verifying data persistence..."
+    
+    # Check if PostgreSQL volume exists and has data
+    if docker volume inspect iot_web3_postgres_data > /dev/null 2>&1; then
+        log_success "PostgreSQL data volume exists"
     else
-        log_warning "Nginx container not found, skipping nginx restart"
+        log_warning "PostgreSQL data volume not found (will be created)"
+    fi
+    
+    # Check if containers can access their data
+    if docker ps --format '{{.Names}}' | grep -q "^iot_web3_postgres$"; then
+        log_success "PostgreSQL container is running with persistent data"
     fi
 }
 
@@ -174,13 +281,26 @@ main() {
     log "IOT Web3 Startup Script"
     log "========================================="
     
+    # Ensure Nginx service is running first
+    ensure_nginx_service || {
+        log_warning "Nginx service check had issues, but continuing..."
+    }
+    
     # Check Docker
     check_docker || exit 1
+    
+    # Verify data persistence
+    verify_data_persistence
     
     # Start IOT Web3 services
     start_iot_web3 || {
         log_error "Failed to start IOT Web3 services"
         exit 1
+    }
+    
+    # Configure Nginx for iot.namisense.com
+    configure_nginx || {
+        log_warning "Nginx configuration had issues, but continuing..."
     }
     
     # Wait a bit for services to fully initialize
@@ -200,19 +320,19 @@ main() {
         log_warning "Frontend may have issues, but continuing..."
     }
     
-    # Restart nginx
+    # Restart nginx to ensure latest configuration is loaded
     restart_nginx || {
         log_warning "Nginx restart had issues, but continuing..."
     }
     
     # Final verification - check API through nginx
     log "Performing final API verification through nginx..."
-    sleep 2
-    if curl -sf "http://localhost/api/sensors" > /dev/null 2>&1 || curl -sf "http://iot.namisense.com/api/sensors" > /dev/null 2>&1; then
+    sleep 3
+    if curl -sf "http://localhost/api/sensors" > /dev/null 2>&1 || curl -sf "http://iot.namisense.com/api/sensors" > /dev/null 2>&1 || curl -sf "https://iot.namisense.com/api/sensors" > /dev/null 2>&1; then
         log_success "API accessible through nginx proxy"
     else
-        log_warning "API verification through nginx had issues"
-    }
+        log_warning "API verification through nginx had issues (may need DNS or SSL setup)"
+    fi
     
     log_success "========================================="
     log_success "Startup completed successfully!"
@@ -221,10 +341,19 @@ main() {
     log "Services status:"
     docker-compose ps
     log ""
+    log "Nginx status:"
+    if command -v nginx > /dev/null 2>&1; then
+        systemctl status nginx --no-pager -l | head -10 || true
+    fi
+    log ""
     log "Access the system at:"
-    log "  - Frontend: http://iot.namisense.com"
-    log "  - API: http://iot.namisense.com/api"
-    log "  - Health: http://iot.namisense.com/health"
+    log "  - Frontend: https://iot.namisense.com"
+    log "  - API: https://iot.namisense.com/api"
+    log "  - Health: https://iot.namisense.com/health"
+    log ""
+    log "Data persistence:"
+    log "  - PostgreSQL data: $(docker volume inspect iot_web3_postgres_data --format '{{.Mountpoint}}' 2>/dev/null || echo 'Volume will be created')"
+    log "  - Logs: $LOG_FILE"
 }
 
 # Run main function

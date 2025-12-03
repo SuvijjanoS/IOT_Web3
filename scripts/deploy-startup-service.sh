@@ -23,10 +23,18 @@ echo "Deploying IOT Web3 startup service..."
 cp "$SERVICE_FILE" "$SYSTEMD_DIR/iot-web3.service"
 
 # Update the path in the service file if needed
-# Assuming the project is at /opt/IOT_Web3 or current directory
-if [ ! -d "/opt/IOT_Web3" ]; then
-    echo "Warning: /opt/IOT_Web3 not found. Updating service file to use current directory."
-    sed -i "s|/opt/IOT_Web3|$PROJECT_DIR|g" "$SYSTEMD_DIR/iot-web3.service"
+# Check common locations: /root/IOT_Web3, /opt/IOT_Web3, or current directory
+if [ -d "/root/IOT_Web3" ]; then
+    PROJECT_DIR="/root/IOT_Web3"
+    echo "Using project directory: $PROJECT_DIR"
+    sed -i "s|/root/IOT_Web3|$PROJECT_DIR|g" "$SYSTEMD_DIR/iot-web3.service" || true
+elif [ -d "/opt/IOT_Web3" ]; then
+    PROJECT_DIR="/opt/IOT_Web3"
+    echo "Using project directory: $PROJECT_DIR"
+    sed -i "s|/root/IOT_Web3|$PROJECT_DIR|g" "$SYSTEMD_DIR/iot-web3.service" || true
+else
+    echo "Warning: Standard locations not found. Using current directory: $PROJECT_DIR"
+    sed -i "s|/root/IOT_Web3|$PROJECT_DIR|g" "$SYSTEMD_DIR/iot-web3.service" || true
 fi
 
 # Make startup script executable
@@ -40,19 +48,37 @@ chmod 644 /var/log/iot-web3-startup.log
 # Reload systemd
 systemctl daemon-reload
 
-# Enable service
+# Enable service to start on boot
 systemctl enable iot-web3.service
 
-echo "Service installed successfully!"
+# Also ensure Nginx is enabled to start on boot
+if command -v nginx > /dev/null 2>&1; then
+    systemctl enable nginx || echo "Warning: Could not enable Nginx service"
+fi
+
+# Ensure Docker is enabled to start on boot
+systemctl enable docker || echo "Warning: Could not enable Docker service"
+
 echo ""
-echo "To start the service now, run:"
+echo "✅ Service installed successfully!"
+echo ""
+echo "📋 Service Configuration:"
+echo "  - Service file: $SYSTEMD_DIR/iot-web3.service"
+echo "  - Startup script: $PROJECT_DIR/scripts/startup-iot-web3.sh"
+echo "  - Log file: /var/log/iot-web3-startup.log"
+echo ""
+echo "🚀 To start the service now, run:"
 echo "  sudo systemctl start iot-web3.service"
 echo ""
-echo "To check status:"
+echo "📊 To check status:"
 echo "  sudo systemctl status iot-web3.service"
 echo ""
-echo "To view logs:"
+echo "📝 To view logs:"
 echo "  sudo journalctl -u iot-web3.service -f"
 echo "  or"
 echo "  tail -f /var/log/iot-web3-startup.log"
+echo ""
+echo "🔄 The service will automatically start on system boot"
+echo "   All Docker containers have 'restart: unless-stopped' policy"
+echo "   Nginx service is enabled to start on boot"
 
