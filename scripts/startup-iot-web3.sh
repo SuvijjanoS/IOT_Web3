@@ -96,6 +96,22 @@ start_iot_web3() {
     
     # Start frontend
     log "Starting frontend service..."
+    
+    # Ensure frontend is built with correct API URL
+    log "Verifying frontend API configuration..."
+    if ! grep -q "VITE_API_URL: /api" docker-compose.yml 2>/dev/null; then
+        log_warning "Frontend API URL not set correctly in docker-compose.yml, updating..."
+        sed -i 's|VITE_API_URL:.*|VITE_API_URL: /api|g' docker-compose.yml || {
+            log_error "Failed to update docker-compose.yml"
+        }
+    fi
+    
+    # Rebuild frontend if needed to ensure correct API URL
+    log "Rebuilding frontend with correct API URL..."
+    docker-compose build --no-cache frontend || {
+        log_warning "Frontend build had issues, but continuing..."
+    }
+    
     docker-compose up -d frontend
     
     # Wait for frontend to be ready
@@ -175,9 +191,27 @@ main() {
         log_warning "Some API checks failed, but continuing..."
     }
     
+    # Verify frontend can access APIs
+    log "Verifying frontend API connectivity..."
+    sleep 3
+    if curl -sf "http://localhost:3000" > /dev/null 2>&1; then
+        log_success "Frontend is serving correctly"
+    else
+        log_warning "Frontend may have issues, but continuing..."
+    }
+    
     # Restart nginx
     restart_nginx || {
         log_warning "Nginx restart had issues, but continuing..."
+    }
+    
+    # Final verification - check API through nginx
+    log "Performing final API verification through nginx..."
+    sleep 2
+    if curl -sf "http://localhost/api/sensors" > /dev/null 2>&1 || curl -sf "http://iot.namisense.com/api/sensors" > /dev/null 2>&1; then
+        log_success "API accessible through nginx proxy"
+    else
+        log_warning "API verification through nginx had issues"
     }
     
     log_success "========================================="
