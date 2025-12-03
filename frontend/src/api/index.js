@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Use relative path if VITE_API_URL is '/api', otherwise use the env var or default
+const API_BASE_URL = import.meta.env.VITE_API_URL === '/api' 
+  ? '/api' 
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
