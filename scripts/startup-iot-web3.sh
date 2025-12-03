@@ -190,42 +190,19 @@ ensure_nginx_service() {
 }
 
 # Function to configure Nginx for iot.namisense.com
+# This adds iot.namisense.com to existing Nginx config WITHOUT overriding other services
 configure_nginx() {
-    log "Configuring Nginx for iot.namisense.com..."
+    log "Configuring Nginx for iot.namisense.com (adding to existing config)..."
     
-    NGINX_CONFIG="/etc/nginx/sites-available/iot.namisense.com"
-    NGINX_ENABLED="/etc/nginx/sites-enabled/iot.namisense.com"
-    
-    # Check if configuration script exists
-    if [ -f "$PROJECT_DIR/scripts/setup-iot-namisense-nginx.sh" ]; then
-        log "Running Nginx configuration script..."
-        bash "$PROJECT_DIR/scripts/setup-iot-namisense-nginx.sh" >> "$LOG_FILE" 2>&1 || {
+    # Use the script that adds to existing config without overriding
+    if [ -f "$PROJECT_DIR/scripts/add-iot-namisense-to-nginx.sh" ]; then
+        log "Running Nginx configuration script (adds to existing config)..."
+        bash "$PROJECT_DIR/scripts/add-iot-namisense-to-nginx.sh" >> "$LOG_FILE" 2>&1 || {
             log_warning "Nginx configuration script had issues, but continuing..."
         }
-    elif [ -f "$PROJECT_DIR/nginx-iot-namisense.conf" ]; then
-        log "Copying Nginx configuration from repository..."
-        mkdir -p /etc/nginx/sites-available
-        cp "$PROJECT_DIR/nginx-iot-namisense.conf" "$NGINX_CONFIG" || {
-            log_warning "Failed to copy Nginx config, but continuing..."
-            return 0
-        }
-        
-        # Enable the site
-        mkdir -p /etc/nginx/sites-enabled
-        rm -f "$NGINX_ENABLED"
-        ln -s "$NGINX_CONFIG" "$NGINX_ENABLED" || {
-            log_warning "Failed to enable Nginx site, but continuing..."
-        }
-        
-        # Test and reload nginx
-        if nginx -t > /dev/null 2>&1; then
-            systemctl reload nginx || systemctl restart nginx
-            log_success "Nginx configured for iot.namisense.com"
-        else
-            log_warning "Nginx configuration test failed"
-        fi
     else
-        log_warning "Nginx configuration files not found, skipping configuration"
+        log_warning "Nginx configuration script not found, skipping configuration"
+        log_warning "Please run: sudo bash $PROJECT_DIR/scripts/add-iot-namisense-to-nginx.sh"
     fi
 }
 
